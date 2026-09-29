@@ -9,6 +9,7 @@ from analysis import (
 )
 
 from report import generate_analysis_summary
+from query import answer_query
 
 
 # =====================================================
@@ -72,6 +73,13 @@ radius_km = st.slider(
 
 # Current fixed ML confidence threshold
 confidence = 0.60
+
+# =====================================================
+# SESSION STATE
+# =====================================================
+
+if "analysis_data" not in st.session_state:
+    st.session_state.analysis_data = None
 
 
 # =====================================================
@@ -634,6 +642,17 @@ if st.button(
             st.subheader(
                 "🤖 SetQuery AI Analysis"
             )
+         
+            st.markdown("### 💬 Ask SetQuery AI")
+
+            user_question = st.text_input(
+                "Ask a question about this analysis",
+                placeholder="e.g. Did built-up land increase?",
+                key="analysis_question"
+            )
+
+            if user_question:
+                st.info(answer_query(user_question, result))
 
 
             summary = generate_analysis_summary(
