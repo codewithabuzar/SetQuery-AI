@@ -10,6 +10,7 @@ from analysis import (
 
 from report import generate_analysis_summary
 from query import answer_query
+from llm import ask_gemini
 
 
 # =====================================================
@@ -733,14 +734,39 @@ if data is not None:
 
     if user_question:
 
-        answer = answer_query(
-            user_question,
-            result,
-        )
+        with st.spinner(
+            "SetQuery AI is analyzing your question..."
+        ):
 
-        st.info(
-            answer
-        )
+            try:
+
+                answer = ask_gemini(
+                    question=user_question,
+                    result=result,
+                    location=location,
+                    before_date=analyzed_before,
+                    after_date=analyzed_after,
+                )
+
+                st.success(
+                    "AI-powered answer"
+                )
+
+            except Exception as error:
+
+                answer = answer_query(
+                    user_question,
+                    result,
+                )
+
+                st.warning(
+                    "Gemini is temporarily unavailable. "
+                    "Showing a grounded fallback answer."
+                )
+
+                st.error(
+                    f"Gemini error: {error}"
+                )
 
 
     # =================================================
