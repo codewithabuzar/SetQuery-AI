@@ -1,14 +1,21 @@
-import os
 import json
+import os
+import random
+import time
 
 from dotenv import load_dotenv
 from google import genai
+from google.genai import errors
 
 
-# Load secrets from .env
 load_dotenv()
 
+
 API_KEY = os.getenv("GEMINI_API_KEY")
+MODEL = os.getenv(
+    "GEMINI_MODEL",
+    "gemini-3.8-flash"
+)
 
 
 if API_KEY:
@@ -19,30 +26,26 @@ else:
     client = None
 
 
-def ask_gemini(
-    question,
+class LLMUnavailableError(Exception):
+    """Temporary Gemini availability failure."""
+
+
+class LLMConfigurationError(Exception):
+    """Gemini configuration problem."""
+
+
+def build_context(
     result,
     location,
     before_date,
     after_date,
 ):
     """
-    Answer questions about a SetQuery AI analysis
-    using Gemini and only the supplied measurements.
+    Create the only analysis data Gemini is
+    permitted to reason from.
     """
 
-    if client is None:
-
-        raise RuntimeError(
-            "Gemini API key was not found."
-        )
-
-
-    # =================================================
-    # DATA GIVEN TO GEMINI
-    # =================================================
-
-    context = {
+    return {
 
         "location":
             location,
@@ -112,17 +115,22 @@ def ask_gemini(
     }
 
 
-    # =================================================
-    # GROUNDED PROMPT
-    # =================================================
+def build_prompt(
+    question,
+    context,
+):
+    """
+    Build a grounded prompt.
+    """
 
-    prompt = f"""
-You are SetQuery AI, an assistant that explains
-satellite-derived land-cover change analysis.
+    return f"""
+You are SetQuery AI.
 
-You have NOT personally inspected the satellite imagery.
-You must reason only from the structured measurements
-provided below.
+SetQuery AI explains land-cover change measurements
+derived from satellite data and an ML classification
+pipeline.
+
+You do NOT directly inspect the satellite imagery.
 
 ANALYSIS DATA:
 
@@ -135,58 +143,183 @@ USER QUESTION:
 
 STRICT RULES:
 
-1. Use only the supplied analysis data.
+1. Use only ANALYSIS DATA.
 
-2. Never invent a detected building, road, forest,
-   flood, fire, construction project, disaster or
-   geographic event.
+2. Never invent detected buildings, roads,
+   construction projects, floods, fires,
+   deforestation events, disasters or causes.
 
-3. Do not claim that you directly inspected the
-   satellite images.
+3. Never claim that you personally inspected
+   or interpreted the satellite images.
 
-4. Distinguish between:
-   - net land-cover difference
-   - explicit detected land-cover transitions.
+4. Clearly distinguish between:
 
-5. Comparable coverage is NOT an accuracy percentage.
+   A) net class-area difference
 
-6. Coverage means the percentage of the requested
-   region where classifications met the 60% confidence
-   threshold in BOTH periods.
+   and
 
-7. If coverage is limited, clearly mention that this
-   restricts interpretation.
+   B) explicitly detected class transitions.
 
-8. These values are satellite-derived ML estimates,
-   not surveyed ground truth.
+5. coverage_percent is NOT accuracy.
 
-9. Do not infer the cause of a change unless the data
-   explicitly provides a cause.
+6. coverage_percent means the percentage of the
+   requested study region where both periods met
+   the configured ML confidence threshold.
 
-10. If the supplied data cannot answer the question,
-    say that it cannot be determined from this analysis.
+7. If coverage is limited, explicitly qualify
+   conclusions that depend on complete-area coverage.
 
-11. Be concise and easy to understand.
+8. The measurements are satellite-derived ML
+   estimates, not surveyed ground truth.
 
-12. When useful, quote relevant values in km².
+9. Do not infer WHY a change occurred.
+
+10. If the supplied measurements cannot answer
+    the question, explicitly say so.
+
+11. Quote numerical values when they help answer
+    the question.
+
+12. Keep the response concise and understandable.
 """
 
 
-    # =================================================
-    # GEMINI
-    # =================================================
+def ask_gemini(
+    question,
+    result,
+    location,
+    before_date,
+    after_date,
+    max_attempts=3,
+):
+    """
+    Ask Gemini a grounded question.
 
-    response = client.models.generate_content(
-      model="gemini-3.8-flash",
-        contents=prompt,
-    )
+    Temporary 429/503 failures are retried.
+    Other failures are returned to the caller.
+    """
 
+    if client is None:
 
-    if not response.text:
-
-        raise RuntimeError(
-            "Gemini returned an empty response."
+        raise LLMConfigurationError(
+            "GEMINI_API_KEY is not configured."
         )
 
 
-    return response.text
+    context = build_context(
+        result=result,
+        location=location,
+        before_date=before_date,
+        after_date=after_date,
+    )
+
+
+    prompt = build_prompt(
+        question=question,
+        context=context,
+    )
+
+
+    last_error = None
+
+
+    for attempt in range(
+        1,
+        max_attempts + 1,
+    ):
+
+        try:
+
+            response = (
+                client.models.generate_content(
+                    model=MODEL,
+                    contents=prompt,
+                )
+            )
+
+
+            text = response.text
+
+
+            if not text:
+
+                raise LLMUnavailableError(
+                    "Gemini returned an empty response."
+                )
+
+
+            return text.strip()
+
+
+        except errors.APIError as error:
+
+            last_error = error
+
+            status = getattr(
+                error,
+                "code",
+                None
+            )
+
+            if status is None:
+
+                status = getattr(
+                    error,
+                    "status_code",
+                    None
+                )
+
+
+            # Temporary failures
+            if status in (429, 503):
+
+                if attempt < max_attempts:
+
+                    delay = (
+                        1.5
+                        * (2 ** (attempt - 1))
+                        + random.uniform(0, 0.5)
+                    )
+
+                    time.sleep(delay)
+
+                    continue
+
+
+                raise LLMUnavailableError(
+                    f"Gemini temporarily unavailable "
+                    f"after {max_attempts} attempts."
+                ) from error
+
+
+            raise
+
+
+        except (
+            TimeoutError,
+            ConnectionError,
+        ) as error:
+
+            last_error = error
+
+            if attempt < max_attempts:
+
+                delay = (
+                    1.5
+                    * (2 ** (attempt - 1))
+                )
+
+                time.sleep(delay)
+
+                continue
+
+
+            raise LLMUnavailableError(
+                "Gemini request failed because of "
+                "a temporary network problem."
+            ) from error
+
+
+    raise LLMUnavailableError(
+        "Gemini is currently unavailable."
+    ) from last_error
