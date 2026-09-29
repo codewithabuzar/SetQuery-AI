@@ -1,14 +1,12 @@
 def answer_query(question, result):
     """
-    Answer questions using only calculated
-    SetQuery AI analysis results.
+    Grounded local fallback for SetQuery AI.
+
+    This function never calls an LLM. It answers only
+    from the structured Earth Engine analysis result.
     """
 
     q = question.lower().strip()
-
-    # -------------------------------------------------
-    # CALCULATED DIFFERENCES
-    # -------------------------------------------------
 
     vegetation_change = (
         result["after_vegetation_km2"]
@@ -25,207 +23,328 @@ def answer_query(question, result):
         - result["before_water_km2"]
     )
 
-    coverage = result[
-        "coverage_percent"
+    bare_change = (
+        result["after_bare_km2"]
+        - result["before_bare_km2"]
+    )
+
+    coverage = result["coverage_percent"]
+
+    veg_to_built = result[
+        "vegetation_to_built_km2"
     ]
 
-    # -------------------------------------------------
-    # VEGETATION
-    # -------------------------------------------------
+    built_to_veg = result[
+        "built_to_vegetation_km2"
+    ]
 
-    if (
-        "vegetation" in q
-        and
-        ("increase" in q or "decrease" in q or "change" in q)
+    bare_to_built = result[
+        "bare_to_built_km2"
+    ]
+
+    water_to_land = result[
+        "water_to_nonwater_km2"
+    ]
+
+    land_to_water = result[
+        "nonwater_to_water_km2"
+    ]
+
+
+    def describe_change(
+        name,
+        value,
     ):
 
-        if abs(vegetation_change) < 0.001:
+        if abs(value) < 0.001:
 
             return (
-                "Vegetation remained approximately stable "
-                "within the high-confidence comparable area."
+                f"{name} remained approximately stable"
             )
 
-        elif vegetation_change > 0:
+        if value > 0:
 
             return (
-                "Vegetation increased by approximately "
-                f"{vegetation_change:.3f} km² within the "
-                "high-confidence comparable area."
+                f"{name} increased by approximately "
+                f"{value:.3f} km²"
             )
+
+        return (
+            f"{name} decreased by approximately "
+            f"{abs(value):.3f} km²"
+        )
+
+
+    def coverage_statement():
+
+        if coverage >= 70:
+
+            quality = "relatively broad"
+
+        elif coverage >= 40:
+
+            quality = "moderate"
 
         else:
 
-            return (
-                "Vegetation decreased by approximately "
-                f"{abs(vegetation_change):.3f} km² within "
-                "the high-confidence comparable area."
-            )
+            quality = "limited"
 
-    # -------------------------------------------------
-    # BUILT-UP / URBAN
-    # -------------------------------------------------
+        return (
+            f"Comparable coverage is {coverage:.1f}% "
+            f"of the requested study area, which provides "
+            f"{quality} high-confidence spatial coverage. "
+            "Coverage is not an accuracy percentage."
+        )
 
-    if (
-        "built" in q
-        or
-        "urban" in q
-        or
-        "construction" in q
+
+    # =================================================
+    # SUMMARY
+    # =================================================
+
+    if any(
+        phrase in q
+        for phrase in [
+            "summarize",
+            "summary",
+            "important changes",
+            "main changes",
+            "what changed",
+            "overall change",
+        ]
+    ):
+
+        changes = [
+            (
+                "vegetation",
+                vegetation_change,
+            ),
+            (
+                "built-up land",
+                built_change,
+            ),
+            (
+                "water",
+                water_change,
+            ),
+            (
+                "bare ground",
+                bare_change,
+            ),
+        ]
+
+        largest = max(
+            changes,
+            key=lambda item: abs(item[1]),
+        )
+
+        return (
+            f"{describe_change('Vegetation', vegetation_change)}. "
+            f"{describe_change('Built-up land', built_change)}. "
+            f"{describe_change('Water', water_change)}. "
+            f"{describe_change('Bare ground', bare_change)}. "
+            f"The largest net class-area difference among these "
+            f"categories is for {largest[0]} "
+            f"({largest[1]:+.3f} km²). "
+            f"High-confidence vegetation → built-up transition "
+            f"was {veg_to_built:.4f} km². "
+            f"{coverage_statement()} "
+            "These are satellite-derived ML estimates."
+        )
+
+
+    # =================================================
+    # RELIABILITY / QUALITY
+    # =================================================
+
+    if any(
+        word in q
+        for word in [
+            "reliable",
+            "reliability",
+            "quality",
+            "confidence",
+            "accurate",
+            "accuracy",
+            "trust",
+        ]
+    ):
+
+        return (
+            f"{coverage_statement()} "
+            f"The analysis used "
+            f"{result['before_observations']} ML observations "
+            f"around the before period and "
+            f"{result['after_observations']} around the after "
+            "period. Results should be treated as "
+            "satellite-derived ML estimates rather than "
+            "surveyed ground truth."
+        )
+
+
+    # =================================================
+    # URBAN / BUILT-UP
+    # =================================================
+
+    if any(
+        term in q
+        for term in [
+            "built",
+            "urban",
+            "construction",
+            "development",
+        ]
     ):
 
         if (
             "vegetation" in q
-            and
-            (
-                "became" in q
-                or
-                "converted" in q
-                or
-                "transition" in q
-            )
+            or "converted" in q
+            or "transition" in q
         ):
 
-            amount = result[
-                "vegetation_to_built_km2"
-            ]
-
             return (
-                "Approximately "
-                f"{amount:.4f} km² was classified as "
-                "high-confidence vegetation → built-up "
-                "transition."
+                f"High-confidence vegetation → built-up "
+                f"transition was approximately "
+                f"{veg_to_built:.4f} km². "
+                f"Built-up → vegetation transition was "
+                f"{built_to_veg:.4f} km². "
+                "These transition values should not be confused "
+                "with the total net built-up area difference."
             )
-
-        if abs(built_change) < 0.001:
-
-            return (
-                "Built-up land remained approximately "
-                "stable within the high-confidence "
-                "comparable area."
-            )
-
-        elif built_change > 0:
-
-            return (
-                "Built-up land increased by approximately "
-                f"{built_change:.3f} km² within the "
-                "high-confidence comparable area."
-            )
-
-        else:
-
-            return (
-                "Built-up land decreased by approximately "
-                f"{abs(built_change):.3f} km² within the "
-                "high-confidence comparable area."
-            )
-
-    # -------------------------------------------------
-    # WATER
-    # -------------------------------------------------
-
-    if "water" in q:
-
-        if (
-            "non-water" in q
-            or
-            "new water" in q
-        ):
-
-            amount = result[
-                "nonwater_to_water_km2"
-            ]
-
-            return (
-                "Approximately "
-                f"{amount:.4f} km² was classified as "
-                "non-water → water transition."
-            )
-
-        if abs(water_change) < 0.001:
-
-            return (
-                "Water coverage remained approximately "
-                "stable within the high-confidence "
-                "comparable area."
-            )
-
-        elif water_change > 0:
-
-            return (
-                "Water coverage increased by approximately "
-                f"{water_change:.3f} km²."
-            )
-
-        else:
-
-            return (
-                "Water coverage decreased by approximately "
-                f"{abs(water_change):.3f} km²."
-            )
-
-    # -------------------------------------------------
-    # QUALITY / CONFIDENCE
-    # -------------------------------------------------
-
-    if (
-        "reliable" in q
-        or
-        "quality" in q
-        or
-        "confidence" in q
-        or
-        "accuracy" in q
-    ):
-
-        if coverage >= 70:
-
-            label = "good"
-
-        elif coverage >= 40:
-
-            label = "moderate"
-
-        else:
-
-            label = "low"
 
         return (
-            f"Comparable coverage is {coverage:.1f}%, "
-            f"which the current SetQuery AI interface "
-            f"labels as {label}. This is not an accuracy "
-            "percentage. It means that this proportion of "
-            "the requested region passed the 60% ML "
-            "confidence threshold in both periods."
+            f"{describe_change('Built-up land', built_change)} "
+            "within the high-confidence comparable area. "
+            f"Vegetation → built-up transition was "
+            f"{veg_to_built:.4f} km². "
+            f"{coverage_statement()}"
         )
 
-    # -------------------------------------------------
-    # AREA
-    # -------------------------------------------------
 
-    if (
-        "area" in q
-        or
-        "size" in q
+    # =================================================
+    # VEGETATION
+    # =================================================
+
+    if any(
+        term in q
+        for term in [
+            "vegetation",
+            "green",
+            "plants",
+        ]
     ):
 
         return (
-            "The requested analysis region covers "
+            f"{describe_change('Vegetation', vegetation_change)} "
+            "within the high-confidence comparable area. "
+            f"Vegetation → built-up transition was "
+            f"{veg_to_built:.4f} km² and built-up → vegetation "
+            f"was {built_to_veg:.4f} km²."
+        )
+
+
+    # =================================================
+    # WATER
+    # =================================================
+
+    if any(
+        term in q
+        for term in [
+            "water",
+            "lake",
+            "river",
+        ]
+    ):
+
+        return (
+            f"{describe_change('Water', water_change)}. "
+            f"Water → non-water transition was "
+            f"{water_to_land:.4f} km², while non-water → water "
+            f"transition was {land_to_water:.4f} km². "
+            "These changes can reflect real land-cover change "
+            "or temporal/seasonal water variation."
+        )
+
+
+    # =================================================
+    # BARE GROUND
+    # =================================================
+
+    if any(
+        term in q
+        for term in [
+            "bare",
+            "open land",
+            "empty land",
+        ]
+    ):
+
+        return (
+            f"{describe_change('Bare ground', bare_change)}. "
+            f"High-confidence bare → built-up transition "
+            f"was {bare_to_built:.4f} km²."
+        )
+
+
+    # =================================================
+    # ANALYSIS AREA
+    # =================================================
+
+    if any(
+        term in q
+        for term in [
+            "area",
+            "size",
+            "region",
+            "coverage",
+        ]
+    ):
+
+        return (
+            f"The requested analysis area is "
             f"{result['total_area_km2']:.2f} km². "
             f"{result['comparable_area_km2']:.2f} km² "
-            "met the confidence requirement in both "
-            "periods."
+            f"met the confidence requirement in both periods. "
+            f"{coverage_statement()}"
         )
 
-    # -------------------------------------------------
+
+    # =================================================
+    # LIMITATIONS
+    # =================================================
+
+    if any(
+        term in q
+        for term in [
+            "limitation",
+            "limitations",
+            "cannot tell",
+            "can't tell",
+            "not tell",
+        ]
+    ):
+
+        return (
+            "This analysis cannot establish why a land-cover "
+            "change occurred. It should not be used to claim "
+            "specific construction projects, individual buildings, "
+            "small roads, disasters or exact property-level change "
+            "without additional evidence. Sentinel-2 and the "
+            "land-cover model provide area-level estimates, and "
+            f"only {coverage:.1f}% of the requested region met "
+            "the current confidence requirement in both periods."
+        )
+
+
+    # =================================================
     # FALLBACK
-    # -------------------------------------------------
+    # =================================================
 
     return (
-        "I can currently answer questions about "
-        "vegetation, built-up/urban land, water, "
-        "detected transitions, analysis area, and "
-        "data confidence. Try asking: "
-        "'Did built-up land increase?'"
+        "Gemini is unavailable, so I am using SetQuery AI's "
+        "grounded local fallback. I can answer questions about "
+        "the overall change summary, vegetation, built-up land, "
+        "water, bare ground, detected transitions, analysis area, "
+        "data quality and limitations. For example: "
+        "'What changed the most?' or "
+        "'How reliable is this analysis?'"
     )
