@@ -4,7 +4,8 @@ from datetime import date
 
 from analysis import (
     analyze_area,
-    get_satellite_images
+    get_satellite_images,
+    get_change_map
 )
 
 
@@ -65,7 +66,7 @@ radius_km = st.slider(
 )
 
 
-# Fixed for our current V4 analysis
+# Fixed confidence threshold used across our analysis
 confidence = 0.60
 
 
@@ -102,9 +103,7 @@ if st.button(
             # FIND LOCATION
             # =========================================
 
-            with st.spinner(
-                "Finding location..."
-            ):
+            with st.spinner("Finding location..."):
 
                 geocoder = Nominatim(
                     user_agent=(
@@ -117,7 +116,6 @@ if st.button(
                     timeout=10
                 )
 
-
             if location is None:
 
                 st.error(
@@ -127,15 +125,12 @@ if st.button(
 
                 st.stop()
 
-
             latitude = location.latitude
             longitude = location.longitude
-
 
             st.success(
                 f"Location found: {location.address}"
             )
-
 
             # =========================================
             # EARTH ENGINE ANALYSIS
@@ -155,7 +150,6 @@ if st.button(
                     confidence_threshold=confidence
                 )
 
-
                 images = get_satellite_images(
                     latitude=latitude,
                     longitude=longitude,
@@ -164,39 +158,30 @@ if st.button(
                     radius_km=radius_km
                 )
 
+                change_map = get_change_map(
+                    latitude=latitude,
+                    longitude=longitude,
+                    before_date=str(before_date),
+                    after_date=str(after_date),
+                    radius_km=radius_km,
+                    confidence_threshold=confidence
+                )
 
             # =========================================
-            # LOCATION
+            # ANALYSIS LOCATION
             # =========================================
 
-            st.subheader(
-                "📍 Analysis Location"
-            )
+            st.subheader("📍 Analysis Location")
 
-            st.write(
-                location.address
-            )
+            st.write(location.address)
 
             a, b, c = st.columns(3)
 
-            a.metric(
-                "Latitude",
-                f"{latitude:.5f}"
-            )
-
-            b.metric(
-                "Longitude",
-                f"{longitude:.5f}"
-            )
-
-            c.metric(
-                "Radius",
-                f"{radius_km} km"
-            )
-
+            a.metric("Latitude", f"{latitude:.5f}")
+            b.metric("Longitude", f"{longitude:.5f}")
+            c.metric("Radius", f"{radius_km} km")
 
             st.divider()
-
 
             # =========================================
             # BEFORE / AFTER SATELLITE IMAGERY
@@ -212,9 +197,7 @@ if st.button(
                 "selected date."
             )
 
-
             before_img, after_img = st.columns(2)
-
 
             with before_img:
 
@@ -237,7 +220,6 @@ if st.button(
                     f"{images['before_sentinel_observations']}"
                 )
 
-
             with after_img:
 
                 st.markdown(
@@ -259,51 +241,82 @@ if st.button(
                     f"{images['after_sentinel_observations']}"
                 )
 
-
             st.divider()
 
+            # =========================================
+            # HIGH-CONFIDENCE CHANGE MAP
+            # =========================================
+
+            st.subheader(
+                "🗺️ High-Confidence Change Map"
+            )
+
+            st.write(
+                "Highlighted regions show selected "
+                "land-cover transitions detected with "
+                "sufficient confidence in both periods."
+            )
+
+            st.image(
+                change_map["change_url"],
+                width="stretch"
+            )
+
+            st.markdown(
+                """
+### Change Map Legend
+
+🔴 **Red** — Vegetation → Built-up  
+🟢 **Green** — Built-up → Vegetation  
+🟡 **Yellow** — Bare ground → Built-up  
+🔵 **Blue** — Non-water → Water  
+🟠 **Orange** — Water → Non-water
+"""
+            )
+
+            st.caption(
+                "Colored change pixels are enlarged "
+                "for visibility. Reported area "
+                "statistics are calculated from the "
+                "original 10 m classification pixels "
+                "and are not enlarged."
+            )
+
+            st.caption(
+                "Uncolored areas do not necessarily "
+                "mean that nothing changed. They may "
+                "represent stable land cover, a "
+                "transition not displayed here, or "
+                "pixels that did not meet the 60% "
+                "confidence threshold."
+            )
+
+            st.divider()
 
             # =========================================
             # DATA QUALITY
             # =========================================
 
-            st.subheader(
-                "📡 Data Quality"
-            )
+            st.subheader("📡 Data Quality")
 
             q1, q2, q3 = st.columns(3)
 
-
             q1.metric(
                 "ML observations before",
-                result[
-                    "before_observations"
-                ]
+                result["before_observations"]
             )
-
 
             q2.metric(
                 "ML observations after",
-                result[
-                    "after_observations"
-                ]
+                result["after_observations"]
             )
 
-
-            coverage = result[
-                "coverage_percent"
-            ]
-
+            coverage = result["coverage_percent"]
 
             q3.metric(
                 "Comparable coverage",
                 f"{coverage:.1f}%"
             )
-
-
-            # -----------------------------------------
-            # QUALITY MESSAGE
-            # -----------------------------------------
 
             if coverage >= 70:
 
@@ -330,7 +343,6 @@ if st.button(
                     "is limited."
                 )
 
-
             st.caption(
                 "Only pixels meeting the 60% ML "
                 "confidence threshold in BOTH periods "
@@ -338,23 +350,15 @@ if st.button(
                 "land-cover statistics."
             )
 
-
             st.divider()
-
 
             # =========================================
             # LAND COVER
             # =========================================
 
-            st.subheader(
-                "🌍 Land-Cover Analysis"
-            )
+            st.subheader("🌍 Land-Cover Analysis")
 
-
-            before_col, after_col = (
-                st.columns(2)
-            )
-
+            before_col, after_col = st.columns(2)
 
             with before_col:
 
@@ -362,30 +366,25 @@ if st.button(
                     f"### Before — {before_date}"
                 )
 
-
                 st.metric(
                     "Vegetation",
                     f"{result['before_vegetation_km2']:.2f} km²"
                 )
-
 
                 st.metric(
                     "Built-up",
                     f"{result['before_built_km2']:.2f} km²"
                 )
 
-
                 st.metric(
                     "Water",
                     f"{result['before_water_km2']:.2f} km²"
                 )
 
-
                 st.metric(
                     "Bare ground",
                     f"{result['before_bare_km2']:.2f} km²"
                 )
-
 
             with after_col:
 
@@ -393,81 +392,67 @@ if st.button(
                     f"### After — {after_date}"
                 )
 
-
                 st.metric(
                     "Vegetation",
                     f"{result['after_vegetation_km2']:.2f} km²"
                 )
-
 
                 st.metric(
                     "Built-up",
                     f"{result['after_built_km2']:.2f} km²"
                 )
 
-
                 st.metric(
                     "Water",
                     f"{result['after_water_km2']:.2f} km²"
                 )
-
 
                 st.metric(
                     "Bare ground",
                     f"{result['after_bare_km2']:.2f} km²"
                 )
 
-
             st.divider()
 
-
             # =========================================
-            # CHANGE SUMMARY
+            # NET CHANGE
             # =========================================
 
             st.subheader(
                 "📈 Net Land-Cover Difference"
             )
 
-
             vegetation_change = (
                 result["after_vegetation_km2"]
                 - result["before_vegetation_km2"]
             )
-
 
             built_change = (
                 result["after_built_km2"]
                 - result["before_built_km2"]
             )
 
-
             water_change = (
                 result["after_water_km2"]
                 - result["before_water_km2"]
             )
 
-
             n1, n2, n3 = st.columns(3)
-
 
             n1.metric(
                 "Vegetation",
                 f"{vegetation_change:+.3f} km²"
             )
 
-
             n2.metric(
                 "Built-up",
                 f"{built_change:+.3f} km²"
             )
 
-
             n3.metric(
                 "Water",
                 f"{water_change:+.3f} km²"
             )
-
 
             st.caption(
                 "Net differences describe ML-classified "
@@ -476,9 +461,7 @@ if st.button(
                 "permanent physical land conversion."
             )
 
-
             st.divider()
-
 
             # =========================================
             # DETECTED TRANSITIONS
@@ -488,89 +471,59 @@ if st.button(
                 "🔄 High-Confidence Transitions"
             )
 
-
             t1, t2, t3 = st.columns(3)
-
 
             t1.metric(
                 "Vegetation → Built-up",
-                (
-                    f"{result['vegetation_to_built_km2']:.4f} km²"
-                )
+                f"{result['vegetation_to_built_km2']:.4f} km²"
             )
-
 
             t2.metric(
                 "Built-up → Vegetation",
-                (
-                    f"{result['built_to_vegetation_km2']:.4f} km²"
-                )
+                f"{result['built_to_vegetation_km2']:.4f} km²"
             )
-
 
             t3.metric(
                 "Bare → Built-up",
-                (
-                    f"{result['bare_to_built_km2']:.4f} km²"
-                )
+                f"{result['bare_to_built_km2']:.4f} km²"
             )
-
 
             t4, t5 = st.columns(2)
 
-
             t4.metric(
                 "Water → Non-water",
-                (
-                    f"{result['water_to_nonwater_km2']:.4f} km²"
-                )
+                f"{result['water_to_nonwater_km2']:.4f} km²"
             )
-
 
             t5.metric(
                 "Non-water → Water",
-                (
-                    f"{result['nonwater_to_water_km2']:.4f} km²"
-                )
+                f"{result['nonwater_to_water_km2']:.4f} km²"
             )
-
 
             st.divider()
 
-
             # =========================================
-            # COVERAGE INFORMATION
+            # COVERAGE
             # =========================================
 
-            st.subheader(
-                "📊 Analysis Coverage"
-            )
-
+            st.subheader("📊 Analysis Coverage")
 
             c1, c2, c3 = st.columns(3)
 
-
             c1.metric(
                 "Requested area",
-                (
-                    f"{result['total_area_km2']:.2f} km²"
-                )
+                f"{result['total_area_km2']:.2f} km²"
             )
-
 
             c2.metric(
                 "Comparable area",
-                (
-                    f"{result['comparable_area_km2']:.2f} km²"
-                )
+                f"{result['comparable_area_km2']:.2f} km²"
             )
-
 
             c3.metric(
                 "Coverage",
                 f"{coverage:.1f}%"
             )
-
 
             st.info(
                 "Results are satellite-derived "
@@ -581,11 +534,8 @@ if st.button(
                 "the analysis."
             )
 
-
         except Exception as error:
 
-            st.error(
-                "Analysis failed."
-            )
+            st.error("Analysis failed.")
 
             st.exception(error)

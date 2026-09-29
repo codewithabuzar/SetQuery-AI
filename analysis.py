@@ -45,7 +45,7 @@ def analyze_area(
     )
 
     # ------------------------------------------------------
-    # Build Dynamic World probability composite
+    # Dynamic World probability composite
     # ------------------------------------------------------
 
     def build_composite(date_string):
@@ -97,7 +97,6 @@ def analyze_area(
     before = build_composite(before_date)
     after = build_composite(after_date)
 
-    # Pixels must be high-confidence in BOTH periods.
     valid = (
         before["confidence"]
         .gte(confidence_threshold)
@@ -108,13 +107,11 @@ def analyze_area(
     )
 
     before_land = (
-        before["land"]
-        .updateMask(valid)
+        before["land"].updateMask(valid)
     )
 
     after_land = (
-        after["land"]
-        .updateMask(valid)
+        after["land"].updateMask(valid)
     )
 
     # ------------------------------------------------------
@@ -143,17 +140,13 @@ def analyze_area(
     after_bare = after_land.eq(7)
 
     # ------------------------------------------------------
-    # Area image (km²)
+    # One statistics image
     # ------------------------------------------------------
 
     km2 = (
         ee.Image.pixelArea()
         .divide(1e6)
     )
-
-    # ------------------------------------------------------
-    # One statistics image
-    # ------------------------------------------------------
 
     stats_image = ee.Image.cat([
 
@@ -230,10 +223,6 @@ def analyze_area(
         .rename("nonwater_to_water"),
     ])
 
-    # ------------------------------------------------------
-    # One reduction
-    # ------------------------------------------------------
-
     stats = stats_image.reduceRegion(
         reducer=ee.Reducer.sum(),
         geometry=area,
@@ -256,10 +245,6 @@ def analyze_area(
         .divide(total_area)
         .multiply(100)
     )
-
-    # ------------------------------------------------------
-    # Structured result
-    # ------------------------------------------------------
 
     result = ee.Dictionary({
 
@@ -346,10 +331,6 @@ def get_satellite_images(
         radius_km * 1000
     )
 
-    # ------------------------------------------------------
-    # Pixel-level cloud masking
-    # ------------------------------------------------------
-
     def mask_clouds(image):
 
         scl = image.select("SCL")
@@ -363,10 +344,6 @@ def get_satellite_images(
         )
 
         return image.updateMask(mask)
-
-    # ------------------------------------------------------
-    # Build Sentinel-2 composite
-    # ------------------------------------------------------
 
     def build_image(date_string):
 
@@ -410,10 +387,6 @@ def get_satellite_images(
             collection.size()
         )
 
-    # ------------------------------------------------------
-    # BEFORE / AFTER
-    # ------------------------------------------------------
-
     before_image, before_count = (
         build_image(before_date)
     )
@@ -421,10 +394,6 @@ def get_satellite_images(
     after_image, after_count = (
         build_image(after_date)
     )
-
-    # ------------------------------------------------------
-    # Natural RGB
-    # ------------------------------------------------------
 
     rgb_vis = {
         "bands": [
@@ -446,10 +415,6 @@ def get_satellite_images(
         after_image
         .visualize(**rgb_vis)
     )
-
-    # ------------------------------------------------------
-    # Thumbnail URLs
-    # ------------------------------------------------------
 
     thumbnail_params = {
         "region": area,
@@ -478,5 +443,342 @@ def get_satellite_images(
             before_count.getInfo(),
 
         "after_sentinel_observations":
+            after_count.getInfo(),
+    }
+
+
+# ==========================================================
+# 3. HIGH-CONFIDENCE CHANGE MAP
+# ==========================================================
+
+def get_change_map(
+    latitude,
+    longitude,
+    before_date,
+    after_date,
+    radius_km=10,
+    confidence_threshold=0.60,
+):
+
+    latitude = float(latitude)
+    longitude = float(longitude)
+    radius_km = float(radius_km)
+
+    location = ee.Geometry.Point([
+        longitude,
+        latitude
+    ])
+
+    area = location.buffer(
+        radius_km * 1000
+    )
+
+    def build_land_cover(date_string):
+
+        target = ee.Date(
+            str(date_string)
+        )
+
+        collection = (
+            ee.ImageCollection(
+                "GOOGLE/DYNAMICWORLD/V1"
+            )
+            .filterBounds(area)
+            .filterDate(
+                target.advance(-45, "day"),
+                target.advance(45, "day")
+            )
+        )
+
+        probabilities = (
+            collection
+            .select(PROBABILITY_BANDS)
+            .mean()
+            .clip(area)
+        )
+
+        confidence = (
+            probabilities
+            .reduce(ee.Reducer.max())
+            .rename("confidence")
+        )
+
+        land = (
+            probabilities
+            .toArray()
+            .arrayArgmax()
+            .arrayGet([0])
+            .rename("land")
+        )
+
+        return (
+            land,
+            confidence,
+            collection.size()
+        )
+
+    before_land, before_conf, before_count = (
+        build_land_cover(before_date)
+    )
+
+    after_land, after_conf, after_count = (
+        build_land_cover(after_date)
+    )
+
+    valid = (
+        before_conf
+        .gte(confidence_threshold)
+        .And(
+            after_conf
+            .gte(confidence_threshold)
+        )
+    )
+
+    before_land = (
+        before_land.updateMask(valid)
+    )
+
+    after_land = (
+        after_land.updateMask(valid)
+    )
+
+    before_veg = (
+        before_land
+        .gte(1)
+        .And(before_land.lte(5))
+    )
+
+    after_veg = (
+        after_land
+        .gte(1)
+        .And(after_land.lte(5))
+    )
+
+    before_built = before_land.eq(6)
+    after_built = after_land.eq(6)
+
+    before_bare = before_land.eq(7)
+
+    before_water = before_land.eq(0)
+    after_water = after_land.eq(0)
+
+    vegetation_to_built = (
+        before_veg.And(after_built)
+    )
+
+    built_to_vegetation = (
+        before_built.And(after_veg)
+    )
+
+    bare_to_built = (
+        before_bare.And(after_built)
+    )
+
+    nonwater_to_water = (
+        before_land
+        .neq(0)
+        .And(after_water)
+    )
+
+    water_to_nonwater = (
+        before_water
+        .And(after_land.neq(0))
+    )
+
+    change = (
+        ee.Image(0)
+        .where(
+            vegetation_to_built,
+            1
+        )
+        .where(
+            built_to_vegetation,
+            2
+        )
+        .where(
+            bare_to_built,
+            3
+        )
+        .where(
+            nonwater_to_water,
+            4
+        )
+        .where(
+            water_to_nonwater,
+            5
+        )
+        .clip(area)
+    )
+
+    display_radius = 2
+
+    veg_to_built_display = (
+        change.eq(1)
+        .focal_max(
+            radius=display_radius,
+            units="pixels"
+        )
+    )
+
+    built_to_veg_display = (
+        change.eq(2)
+        .focal_max(
+            radius=display_radius,
+            units="pixels"
+        )
+    )
+
+    bare_to_built_display = (
+        change.eq(3)
+        .focal_max(
+            radius=display_radius,
+            units="pixels"
+        )
+    )
+
+    new_water_display = (
+        change.eq(4)
+        .focal_max(
+            radius=display_radius,
+            units="pixels"
+        )
+    )
+
+    lost_water_display = (
+        change.eq(5)
+        .focal_max(
+            radius=display_radius,
+            units="pixels"
+        )
+    )
+
+    display_change = (
+        ee.Image(0)
+        .where(
+            veg_to_built_display,
+            1
+        )
+        .where(
+            built_to_veg_display,
+            2
+        )
+        .where(
+            bare_to_built_display,
+            3
+        )
+        .where(
+            new_water_display,
+            4
+        )
+        .where(
+            lost_water_display,
+            5
+        )
+    )
+
+    display_change = (
+        display_change
+        .updateMask(
+            display_change.gt(0)
+        )
+        .clip(area)
+    )
+
+    def mask_clouds(image):
+
+        scl = image.select("SCL")
+
+        mask = (
+            scl.neq(3)
+            .And(scl.neq(8))
+            .And(scl.neq(9))
+            .And(scl.neq(10))
+            .And(scl.neq(11))
+        )
+
+        return image.updateMask(mask)
+
+    after_target = ee.Date(
+        str(after_date)
+    )
+
+    sentinel_collection = (
+        ee.ImageCollection(
+            "COPERNICUS/S2_SR_HARMONIZED"
+        )
+        .filterBounds(area)
+        .filterDate(
+            after_target.advance(-45, "day"),
+            after_target.advance(45, "day")
+        )
+        .filter(
+            ee.Filter.lt(
+                "CLOUDY_PIXEL_PERCENTAGE",
+                90
+            )
+        )
+        .map(mask_clouds)
+    )
+
+    background = (
+        sentinel_collection
+        .median()
+        .clip(area)
+        .visualize(
+            bands=[
+                "B4",
+                "B3",
+                "B2"
+            ],
+            min=0,
+            max=3500,
+            gamma=1.2
+        )
+        .multiply(0.45)
+        .toUint8()
+    )
+
+    colored_changes = (
+        display_change
+        .visualize(
+            min=1,
+            max=5,
+            palette=[
+                "FF0000",
+                "00FF00",
+                "FFFF00",
+                "0066FF",
+                "FF8800",
+            ]
+        )
+    )
+
+    final_map = (
+        background
+        .blend(colored_changes)
+        .clip(area)
+    )
+
+    thumbnail_params = {
+        "region": area,
+        "dimensions": 800,
+        "format": "png",
+    }
+
+    change_url = (
+        final_map
+        .getThumbURL(
+            thumbnail_params
+        )
+    )
+
+    return {
+        "change_url":
+            change_url,
+
+        "before_change_observations":
+            before_count.getInfo(),
+
+        "after_change_observations":
             after_count.getInfo(),
     }
