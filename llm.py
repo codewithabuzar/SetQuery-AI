@@ -14,20 +14,18 @@ load_dotenv()
 API_KEY = os.getenv("GEMINI_API_KEY")
 MODEL = os.getenv(
     "GEMINI_MODEL",
-    "gemini-3.8-flash"
+    "gemini-3.8-flash",
 )
 
 
 if API_KEY:
-    client = genai.Client(
-        api_key=API_KEY
-    )
+    client = genai.Client(api_key=API_KEY)
 else:
     client = None
 
 
 class LLMUnavailableError(Exception):
-    """Temporary Gemini availability failure."""
+    """Gemini is temporarily unavailable."""
 
 
 class LLMConfigurationError(Exception):
@@ -41,23 +39,15 @@ def build_context(
     after_date,
 ):
     """
-    Create the only analysis data Gemini is
-    permitted to reason from.
+    Create the only analysis data Gemini is permitted
+    to reason from.
     """
 
     return {
-
-        "location":
-            location,
-
-        "before_date":
-            before_date,
-
-        "after_date":
-            after_date,
-
-        "confidence_threshold":
-            0.60,
+        "location": location,
+        "before_date": str(before_date),
+        "after_date": str(after_date),
+        "confidence_threshold": 0.60,
 
         "before_observations":
             result["before_observations"],
@@ -120,7 +110,7 @@ def build_prompt(
     context,
 ):
     """
-    Build a grounded prompt.
+    Build a grounded prompt for Gemini.
     """
 
     return f"""
@@ -140,7 +130,6 @@ USER QUESTION:
 
 {question}
 
-
 STRICT RULES:
 
 1. Use only ANALYSIS DATA.
@@ -153,11 +142,8 @@ STRICT RULES:
    or interpreted the satellite images.
 
 4. Clearly distinguish between:
-
    A) net class-area difference
-
    and
-
    B) explicitly detected class transitions.
 
 5. coverage_percent is NOT accuracy.
@@ -184,6 +170,26 @@ STRICT RULES:
 """
 
 
+def _get_status_code(error):
+    """
+    Extract an HTTP/API status code where possible.
+    """
+
+    status = getattr(error, "code", None)
+
+    if status is None:
+        status = getattr(
+            error,
+            "status_code",
+            None,
+        )
+
+    try:
+        return int(status)
+    except (TypeError, ValueError):
+        return status
+
+
 def ask_gemini(
     question,
     result,
@@ -195,16 +201,18 @@ def ask_gemini(
     """
     Ask Gemini a grounded question.
 
-    Temporary 429/503 failures are retried.
-    Other failures are returned to the caller.
+    429 quota/rate-limit errors immediately use the
+    application's deterministic fallback.
+
+    503 temporary service errors are retried.
+
+    Temporary network failures are also retried.
     """
 
     if client is None:
-
         raise LLMConfigurationError(
             "GEMINI_API_KEY is not configured."
         )
-
 
     context = build_context(
         result=result,
@@ -213,112 +221,85 @@ def ask_gemini(
         after_date=after_date,
     )
 
-
     prompt = build_prompt(
         question=question,
         context=context,
     )
 
-
     last_error = None
-
 
     for attempt in range(
         1,
         max_attempts + 1,
     ):
-
         try:
-
-            response = (
-                client.models.generate_content(
-                    model=MODEL,
-                    contents=prompt,
-                )
+            response = client.models.generate_content(
+                model=MODEL,
+                contents=prompt,
             )
-
 
             text = response.text
 
-
             if not text:
-
                 raise LLMUnavailableError(
                     "Gemini returned an empty response."
                 )
 
-
             return text.strip()
 
-
         except errors.APIError as error:
-
             last_error = error
+            status = _get_status_code(error)
 
-            status = getattr(
-                error,
-                "code",
-                None
-            )
+            # 429: quota or rate limit.
+            # Do not make additional requests immediately.
+            if status == 429:
+                raise LLMUnavailableError(
+                    "Gemini quota or rate limit reached. "
+                    "Using the local grounded fallback."
+                ) from error
 
-            if status is None:
-
-                status = getattr(
-                    error,
-                    "status_code",
-                    None
-                )
-
-
-            # Temporary failures
-            if status in (429, 503):
-
+            # 503: temporary Gemini service/capacity problem.
+            if status == 503:
                 if attempt < max_attempts:
-
                     delay = (
-                        1.5
-                        * (2 ** (attempt - 1))
+                        1.5 * (2 ** (attempt - 1))
                         + random.uniform(0, 0.5)
                     )
 
                     time.sleep(delay)
-
                     continue
 
-
                 raise LLMUnavailableError(
-                    f"Gemini temporarily unavailable "
-                    f"after {max_attempts} attempts."
+                    "Gemini service remained temporarily "
+                    f"unavailable after {max_attempts} attempts."
                 ) from error
 
-
+            # An unexpected API problem should not be
+            # mislabeled as a quota/capacity problem.
             raise
-
 
         except (
             TimeoutError,
             ConnectionError,
+            ConnectionResetError,
         ) as error:
-
             last_error = error
 
             if attempt < max_attempts:
-
                 delay = (
-                    1.5
-                    * (2 ** (attempt - 1))
+                    1.5 * (2 ** (attempt - 1))
                 )
 
                 time.sleep(delay)
-
                 continue
 
-
             raise LLMUnavailableError(
-                "Gemini request failed because of "
-                "a temporary network problem."
+                "Gemini request failed after "
+                f"{max_attempts} attempts because "
+                "of a temporary network problem: "
+                f"{type(error).__name__}."
             ) from error
-
 
     raise LLMUnavailableError(
         "Gemini is currently unavailable."
