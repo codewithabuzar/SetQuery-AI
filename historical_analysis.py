@@ -17,18 +17,14 @@ COMPOSITE_WINDOW_DAYS = 45
 MIN_RADIUS_KM = 1
 MAX_RADIUS_KM = 20
 
-# Landsat Collection 2 Level-2 collections.
-#
-# Priority is intentional:
-# newer sensors are preferred where they are available.
 LANDSAT_COLLECTIONS = (
     {
         "id": "LANDSAT/LC09/C02/T1_L2",
         "name": "Landsat 9",
         "sensor": "OLI-2",
-        "red": "SR_B4",
-        "green": "SR_B3",
         "blue": "SR_B2",
+        "green": "SR_B3",
+        "red": "SR_B4",
         "nir": "SR_B5",
         "swir1": "SR_B6",
     },
@@ -36,9 +32,9 @@ LANDSAT_COLLECTIONS = (
         "id": "LANDSAT/LC08/C02/T1_L2",
         "name": "Landsat 8",
         "sensor": "OLI",
-        "red": "SR_B4",
-        "green": "SR_B3",
         "blue": "SR_B2",
+        "green": "SR_B3",
+        "red": "SR_B4",
         "nir": "SR_B5",
         "swir1": "SR_B6",
     },
@@ -46,9 +42,9 @@ LANDSAT_COLLECTIONS = (
         "id": "LANDSAT/LE07/C02/T1_L2",
         "name": "Landsat 7",
         "sensor": "ETM+",
-        "red": "SR_B3",
-        "green": "SR_B2",
         "blue": "SR_B1",
+        "green": "SR_B2",
+        "red": "SR_B3",
         "nir": "SR_B4",
         "swir1": "SR_B5",
     },
@@ -56,9 +52,9 @@ LANDSAT_COLLECTIONS = (
         "id": "LANDSAT/LT05/C02/T1_L2",
         "name": "Landsat 5",
         "sensor": "TM",
-        "red": "SR_B3",
-        "green": "SR_B2",
         "blue": "SR_B1",
+        "green": "SR_B2",
+        "red": "SR_B3",
         "nir": "SR_B4",
         "swir1": "SR_B5",
     },
@@ -74,7 +70,7 @@ class HistoricalValidationError(ValueError):
 
 
 class HistoricalDataError(RuntimeError):
-    """Required historical satellite data is unavailable."""
+    """Historical satellite data could not be analyzed."""
 
 
 # ==========================================================
@@ -82,9 +78,6 @@ class HistoricalDataError(RuntimeError):
 # ==========================================================
 
 def _parse_date(value, field_name):
-    """
-    Normalize date input.
-    """
 
     if isinstance(value, datetime):
         return value.date()
@@ -108,9 +101,6 @@ def _validate_coordinates(
     latitude,
     longitude,
 ):
-    """
-    Validate geographic coordinates.
-    """
 
     try:
         latitude = float(latitude)
@@ -135,9 +125,6 @@ def _validate_coordinates(
 
 
 def _validate_radius(radius_km):
-    """
-    Validate application radius.
-    """
 
     try:
         radius_km = float(radius_km)
@@ -164,9 +151,6 @@ def validate_historical_request(
     after_date,
     radius_km=10,
 ):
-    """
-    Validate a historical imagery request.
-    """
 
     latitude, longitude = (
         _validate_coordinates(
@@ -175,8 +159,10 @@ def validate_historical_request(
         )
     )
 
-    radius_km = _validate_radius(
-        radius_km
+    radius_km = (
+        _validate_radius(
+            radius_km
+        )
     )
 
     before = _parse_date(
@@ -198,8 +184,7 @@ def validate_historical_request(
 
     if before > today or after > today:
         raise HistoricalValidationError(
-            "Historical analysis dates cannot be "
-            "in the future."
+            "Analysis dates cannot be in the future."
         )
 
     return {
@@ -220,9 +205,6 @@ def _create_area(
     longitude,
     radius_km,
 ):
-    """
-    Create Earth Engine analysis geometry.
-    """
 
     point = ee.Geometry.Point(
         [
@@ -237,9 +219,6 @@ def _create_area(
 
 
 def _date_window(target):
-    """
-    Create approximately ±45-day search window.
-    """
 
     start = (
         target
@@ -273,17 +252,8 @@ def _date_window(target):
 
 def _mask_landsat(image):
     """
-    Mask common Landsat Collection 2 QA conditions.
-
-    QA_PIXEL bits:
-    bit 0 = fill
-    bit 1 = dilated cloud
-    bit 2 = cirrus
-    bit 3 = cloud
-    bit 4 = cloud shadow
-    bit 5 = snow
-
-    QA_RADSAT == 0 excludes radiometrically saturated pixels.
+    Mask Collection 2 Level-2 fill/cloud/shadow/snow
+    and radiometrically saturated pixels.
     """
 
     qa = image.select(
@@ -342,13 +312,6 @@ def _mask_landsat(image):
 
 
 def _apply_scale_factors(image):
-    """
-    Convert Landsat Collection 2 optical SR bands
-    to scaled surface reflectance.
-
-    USGS scale:
-        reflectance = DN * 0.0000275 - 0.2
-    """
 
     optical = (
         image
@@ -357,13 +320,10 @@ def _apply_scale_factors(image):
         .add(-0.2)
     )
 
-    return (
-        image
-        .addBands(
-            optical,
-            None,
-            True,
-        )
+    return image.addBands(
+        optical,
+        None,
+        True,
     )
 
 
@@ -372,9 +332,6 @@ def _build_collection(
     area,
     window,
 ):
-    """
-    Build one sensor-specific Landsat collection.
-    """
 
     return (
         ee.ImageCollection(
@@ -391,9 +348,6 @@ def _build_collection(
 
 
 def _collection_count(collection):
-    """
-    Get a Landsat collection count.
-    """
 
     try:
         return int(
@@ -404,8 +358,8 @@ def _collection_count(collection):
 
     except Exception as error:
         raise HistoricalDataError(
-            "Earth Engine could not check historical "
-            "Landsat availability."
+            "Earth Engine could not check "
+            "historical Landsat availability."
         ) from error
 
 
@@ -417,12 +371,6 @@ def find_available_sensors(
     area,
     window,
 ):
-    """
-    Dynamically discover Landsat sensors with observations
-    intersecting the requested location/window.
-
-    This is location-aware; it is not city-specific.
-    """
 
     available = []
 
@@ -430,9 +378,9 @@ def find_available_sensors(
 
         collection = (
             _build_collection(
-                sensor=sensor,
-                area=area,
-                window=window,
+                sensor,
+                area,
+                window,
             )
         )
 
@@ -441,11 +389,17 @@ def find_available_sensors(
         )
 
         if count > 0:
+
             available.append(
                 {
-                    "sensor": sensor,
-                    "collection": collection,
-                    "count": count,
+                    "sensor":
+                        sensor,
+
+                    "collection":
+                        collection,
+
+                    "count":
+                        count,
                 }
             )
 
@@ -453,20 +407,50 @@ def find_available_sensors(
 
 
 # ==========================================================
-# COMPOSITE
+# NORMALIZATION / COMPOSITE
 # ==========================================================
+
+def _normalize_collection(
+    sensor,
+    collection,
+):
+    """
+    Rename corresponding Landsat optical bands into
+    a common schema.
+
+    This provides practical spectral comparability, but
+    it is not a claim of perfect cross-sensor radiometric
+    harmonization.
+    """
+
+    def normalize(image):
+
+        return image.select(
+            [
+                sensor["blue"],
+                sensor["green"],
+                sensor["red"],
+                sensor["nir"],
+                sensor["swir1"],
+            ],
+            [
+                "blue",
+                "green",
+                "red",
+                "nir",
+                "swir1",
+            ],
+        )
+
+    return collection.map(
+        normalize
+    )
+
 
 def _build_composite(
     available_sensors,
     area,
 ):
-    """
-    Build a harmonized visual composite.
-
-    Multiple available Landsat missions can contribute.
-    Their corresponding visible bands are renamed to a
-    common RED/GREEN/BLUE schema before merging.
-    """
 
     normalized_collections = []
 
@@ -478,31 +462,15 @@ def _build_composite(
             "sensor"
         ]
 
-        collection = item[
-            "collection"
-        ]
-
-        normalized = (
-            collection.map(
-                lambda image: (
-                    image.select(
-                        [
-                            sensor["red"],
-                            sensor["green"],
-                            sensor["blue"],
-                        ],
-                        [
-                            "red",
-                            "green",
-                            "blue",
-                        ],
-                    )
-                )
+        collection = (
+            _normalize_collection(
+                sensor,
+                item["collection"],
             )
         )
 
         normalized_collections.append(
-            normalized
+            collection
         )
 
         sensor_metadata.append(
@@ -525,6 +493,7 @@ def _build_composite(
     for collection in (
         normalized_collections[1:]
     ):
+
         merged = merged.merge(
             collection
         )
@@ -542,10 +511,358 @@ def _build_composite(
 
 
 # ==========================================================
-# PUBLIC HISTORICAL IMAGERY FUNCTION
+# SPECTRAL INDICES
 # ==========================================================
 
-def get_historical_satellite_images(
+def _add_indices(image):
+    """
+    Add common Landsat spectral indices.
+
+    NDVI:
+        vegetation-related spectral signal
+
+    MNDWI:
+        water-related spectral signal
+
+    NDBI:
+        built/bare-related spectral signal
+
+    NDBI is NOT treated as a direct building classifier.
+    """
+
+    ndvi = (
+        image
+        .normalizedDifference(
+            [
+                "nir",
+                "red",
+            ]
+        )
+        .rename("NDVI")
+    )
+
+    mndwi = (
+        image
+        .normalizedDifference(
+            [
+                "green",
+                "swir1",
+            ]
+        )
+        .rename("MNDWI")
+    )
+
+    ndbi = (
+        image
+        .normalizedDifference(
+            [
+                "swir1",
+                "nir",
+            ]
+        )
+        .rename("NDBI")
+    )
+
+    return image.addBands(
+        [
+            ndvi,
+            mndwi,
+            ndbi,
+        ]
+    )
+
+
+# ==========================================================
+# VALID COMPARABLE PIXELS
+# ==========================================================
+
+def _valid_mask(image):
+    """
+    Require all five common optical bands to be valid.
+    """
+
+    return (
+        image
+        .select(
+            [
+                "blue",
+                "green",
+                "red",
+                "nir",
+                "swir1",
+            ]
+        )
+        .mask()
+        .reduce(
+            ee.Reducer.min()
+        )
+    )
+
+
+# ==========================================================
+# STATISTICS
+# ==========================================================
+
+def _calculate_spectral_statistics(
+    before,
+    after,
+    area,
+):
+
+    before_valid = (
+        _valid_mask(
+            before
+        )
+    )
+
+    after_valid = (
+        _valid_mask(
+            after
+        )
+    )
+
+    comparable = (
+        before_valid
+        .And(after_valid)
+    )
+
+    before_indices = (
+        _add_indices(
+            before
+        )
+        .select(
+            [
+                "NDVI",
+                "MNDWI",
+                "NDBI",
+            ]
+        )
+        .updateMask(
+            comparable
+        )
+    )
+
+    after_indices = (
+        _add_indices(
+            after
+        )
+        .select(
+            [
+                "NDVI",
+                "MNDWI",
+                "NDBI",
+            ]
+        )
+        .updateMask(
+            comparable
+        )
+    )
+
+    before_named = (
+        before_indices.rename(
+            [
+                "before_ndvi",
+                "before_mndwi",
+                "before_ndbi",
+            ]
+        )
+    )
+
+    after_named = (
+        after_indices.rename(
+            [
+                "after_ndvi",
+                "after_mndwi",
+                "after_ndbi",
+            ]
+        )
+    )
+
+    index_image = ee.Image.cat(
+        [
+            before_named,
+            after_named,
+        ]
+    )
+
+    try:
+
+        means = (
+            index_image
+            .reduceRegion(
+                reducer=(
+                    ee.Reducer.mean()
+                ),
+                geometry=area,
+                scale=30,
+                maxPixels=1e9,
+                tileScale=4,
+            )
+            .getInfo()
+        )
+
+        km2 = (
+            ee.Image.pixelArea()
+            .divide(1e6)
+        )
+
+        comparable_area = (
+            km2
+            .updateMask(
+                comparable
+            )
+            .reduceRegion(
+                reducer=(
+                    ee.Reducer.sum()
+                ),
+                geometry=area,
+                scale=30,
+                maxPixels=1e9,
+                tileScale=4,
+            )
+            .get("area")
+        )
+
+        if comparable_area is None:
+
+            comparable_area_km2 = (
+                0.0
+            )
+
+        else:
+
+            comparable_area_km2 = float(
+                comparable_area.getInfo()
+            )
+
+        total_area_km2 = float(
+            area
+            .area()
+            .divide(1e6)
+            .getInfo()
+        )
+
+    except Exception as error:
+
+        raise HistoricalDataError(
+            "Earth Engine could not calculate "
+            "historical spectral statistics."
+        ) from error
+
+    if total_area_km2 > 0:
+
+        coverage_percent = (
+            comparable_area_km2
+            / total_area_km2
+            * 100
+        )
+
+    else:
+
+        coverage_percent = 0.0
+
+    def value(name):
+
+        item = means.get(
+            name
+        )
+
+        if item is None:
+            return None
+
+        return float(item)
+
+    before_ndvi = value(
+        "before_ndvi"
+    )
+
+    after_ndvi = value(
+        "after_ndvi"
+    )
+
+    before_mndwi = value(
+        "before_mndwi"
+    )
+
+    after_mndwi = value(
+        "after_mndwi"
+    )
+
+    before_ndbi = value(
+        "before_ndbi"
+    )
+
+    after_ndbi = value(
+        "after_ndbi"
+    )
+
+    if (
+        before_ndvi is None
+        or after_ndvi is None
+        or before_mndwi is None
+        or after_mndwi is None
+        or before_ndbi is None
+        or after_ndbi is None
+    ):
+
+        raise HistoricalDataError(
+            "Insufficient valid Landsat pixels were "
+            "available for spectral comparison."
+        )
+
+    return {
+        "total_area_km2":
+            total_area_km2,
+
+        "comparable_area_km2":
+            comparable_area_km2,
+
+        "coverage_percent":
+            coverage_percent,
+
+        "before_mean_ndvi":
+            before_ndvi,
+
+        "after_mean_ndvi":
+            after_ndvi,
+
+        "ndvi_change":
+            (
+                after_ndvi
+                - before_ndvi
+            ),
+
+        "before_mean_mndwi":
+            before_mndwi,
+
+        "after_mean_mndwi":
+            after_mndwi,
+
+        "mndwi_change":
+            (
+                after_mndwi
+                - before_mndwi
+            ),
+
+        "before_mean_ndbi":
+            before_ndbi,
+
+        "after_mean_ndbi":
+            after_ndbi,
+
+        "ndbi_change":
+            (
+                after_ndbi
+                - before_ndbi
+            ),
+    }
+
+
+# ==========================================================
+# PUBLIC HISTORICAL ANALYSIS
+# ==========================================================
+
+def analyze_historical_area(
     latitude,
     longitude,
     before_date,
@@ -553,11 +870,10 @@ def get_historical_satellite_images(
     radius_km=10,
 ):
     """
-    Build historical BEFORE and AFTER Landsat imagery.
+    Perform a common Landsat spectral comparison.
 
-    This stage provides imagery and availability metadata.
-    It does NOT yet claim historical land-cover
-    classification/change statistics.
+    This function does NOT claim Dynamic World classes,
+    ML confidence, exact built-up area, or ground truth.
     """
 
     request = (
@@ -576,53 +892,248 @@ def get_historical_satellite_images(
         request["radius_km"],
     )
 
-    before_window = _date_window(
-        request["before_date"]
+    before_window = (
+        _date_window(
+            request[
+                "before_date"
+            ]
+        )
     )
 
-    after_window = _date_window(
-        request["after_date"]
+    after_window = (
+        _date_window(
+            request[
+                "after_date"
+            ]
+        )
     )
 
-    before_sensors = (
+    before_available = (
         find_available_sensors(
             area,
             before_window,
         )
     )
 
-    after_sensors = (
+    after_available = (
         find_available_sensors(
             area,
             after_window,
         )
     )
 
-    if not before_sensors:
+    if not before_available:
+
         raise HistoricalDataError(
-            "No supported Landsat observations were found "
-            "for the BEFORE composite window."
+            "No supported Landsat observations "
+            "were found for the BEFORE window."
         )
 
-    if not after_sensors:
+    if not after_available:
+
         raise HistoricalDataError(
-            "No supported Landsat observations were found "
-            "for the AFTER composite window."
+            "No supported Landsat observations "
+            "were found for the AFTER window."
         )
 
     (
         before_composite,
-        before_sensor_metadata,
-    ) = _build_composite(
         before_sensors,
+    ) = _build_composite(
+        before_available,
         area,
     )
 
     (
         after_composite,
-        after_sensor_metadata,
-    ) = _build_composite(
         after_sensors,
+    ) = _build_composite(
+        after_available,
+        area,
+    )
+
+    stats = (
+        _calculate_spectral_statistics(
+            before_composite,
+            after_composite,
+            area,
+        )
+    )
+
+    warnings = []
+
+    before_has_l7 = any(
+        sensor["name"]
+        == "Landsat 7"
+
+        for sensor
+        in before_sensors
+    )
+
+    after_has_l7 = any(
+        sensor["name"]
+        == "Landsat 7"
+
+        for sensor
+        in after_sensors
+    )
+
+    if (
+        before_has_l7
+        or after_has_l7
+    ):
+
+        warnings.append(
+            "This comparison includes Landsat 7. "
+            "Post-2003 scan-line gaps can affect "
+            "spatial completeness despite multi-scene "
+            "compositing."
+        )
+
+    warnings.append(
+        "Historical mode compares Landsat spectral "
+        "indices across sensor generations. Bandpass "
+        "differences can influence absolute index values."
+    )
+
+    warnings.append(
+        "NDBI is a built/bare spectral indicator and "
+        "must not be interpreted as exact built-up area."
+    )
+
+    if (
+        stats[
+            "coverage_percent"
+        ]
+        < 20
+    ):
+
+        warnings.append(
+            "Comparable Landsat coverage is very low. "
+            "Broad area-level conclusions are not "
+            "supported."
+        )
+
+    return {
+        "analysis_mode":
+            "historical_spectral",
+
+        "method":
+            (
+                "Cloud-masked Landsat spectral "
+                "comparison"
+            ),
+
+        "approximate_resolution_m":
+            30,
+
+        "before_window":
+            before_window,
+
+        "after_window":
+            after_window,
+
+        "before_sensors":
+            before_sensors,
+
+        "after_sensors":
+            after_sensors,
+
+        "warnings":
+            warnings,
+
+        **stats,
+    }
+
+
+# ==========================================================
+# HISTORICAL IMAGERY
+# ==========================================================
+
+def get_historical_satellite_images(
+    latitude,
+    longitude,
+    before_date,
+    after_date,
+    radius_km=10,
+):
+    """
+    Generate BEFORE/AFTER Landsat true-color previews.
+    """
+
+    request = (
+        validate_historical_request(
+            latitude=latitude,
+            longitude=longitude,
+            before_date=before_date,
+            after_date=after_date,
+            radius_km=radius_km,
+        )
+    )
+
+    area = _create_area(
+        request["latitude"],
+        request["longitude"],
+        request["radius_km"],
+    )
+
+    before_window = (
+        _date_window(
+            request[
+                "before_date"
+            ]
+        )
+    )
+
+    after_window = (
+        _date_window(
+            request[
+                "after_date"
+            ]
+        )
+    )
+
+    before_available = (
+        find_available_sensors(
+            area,
+            before_window,
+        )
+    )
+
+    after_available = (
+        find_available_sensors(
+            area,
+            after_window,
+        )
+    )
+
+    if not before_available:
+
+        raise HistoricalDataError(
+            "No supported Landsat observations "
+            "were found for the BEFORE window."
+        )
+
+    if not after_available:
+
+        raise HistoricalDataError(
+            "No supported Landsat observations "
+            "were found for the AFTER window."
+        )
+
+    (
+        before_composite,
+        before_sensors,
+    ) = _build_composite(
+        before_available,
+        area,
+    )
+
+    (
+        after_composite,
+        after_sensors,
+    ) = _build_composite(
+        after_available,
         area,
     )
 
@@ -633,10 +1144,14 @@ def get_historical_satellite_images(
             "blue",
         ],
 
-        # Landsat SR has already been scaled.
-        "min": 0.0,
-        "max": 0.30,
-        "gamma": 1.1,
+        "min":
+            0.0,
+
+        "max":
+            0.30,
+
+        "gamma":
+            1.1,
     }
 
     before_rgb = (
@@ -654,12 +1169,18 @@ def get_historical_satellite_images(
     )
 
     thumbnail_params = {
-        "region": area,
-        "dimensions": 700,
-        "format": "png",
+        "region":
+            area,
+
+        "dimensions":
+            700,
+
+        "format":
+            "png",
     }
 
     try:
+
         before_url = (
             before_rgb
             .getThumbURL(
@@ -675,51 +1196,33 @@ def get_historical_satellite_images(
         )
 
     except Exception as error:
+
         raise HistoricalDataError(
-            "Earth Engine could not generate the "
-            "historical Landsat preview."
+            "Earth Engine could not generate "
+            "historical Landsat preview images."
         ) from error
 
-    before_total = sum(
-        item["observations"]
-        for item in before_sensor_metadata
+    before_observations = sum(
+        sensor[
+            "observations"
+        ]
+
+        for sensor
+        in before_sensors
     )
 
-    after_total = sum(
-        item["observations"]
-        for item in after_sensor_metadata
+    after_observations = sum(
+        sensor[
+            "observations"
+        ]
+
+        for sensor
+        in after_sensors
     )
-
-    warnings = []
-
-    if any(
-        item["name"] == "Landsat 7"
-        for item in before_sensor_metadata
-    ):
-        warnings.append(
-            "The BEFORE composite includes Landsat 7. "
-            "Landsat 7 scenes after 2003 can contain "
-            "scan-line gaps; multi-scene compositing helps "
-            "reduce but may not eliminate their effect."
-        )
-
-    if any(
-        item["name"] == "Landsat 7"
-        for item in after_sensor_metadata
-    ):
-        warnings.append(
-            "The AFTER composite includes Landsat 7. "
-            "Post-2003 Landsat 7 scan-line gaps may affect "
-            "spatial completeness."
-        )
 
     return {
         "analysis_mode":
-            "historical_landsat",
-
-        "spatial_resolution_note":
-            "Landsat optical imagery is approximately "
-            "30 m for the bands used in this workflow.",
+            "historical_spectral",
 
         "before_url":
             before_url,
@@ -728,23 +1231,20 @@ def get_historical_satellite_images(
             after_url,
 
         "before_observations":
-            before_total,
+            before_observations,
 
         "after_observations":
-            after_total,
+            after_observations,
 
         "before_sensors":
-            before_sensor_metadata,
+            before_sensors,
 
         "after_sensors":
-            after_sensor_metadata,
+            after_sensors,
 
         "before_window":
             before_window,
 
         "after_window":
             after_window,
-
-        "warnings":
-            warnings,
     }

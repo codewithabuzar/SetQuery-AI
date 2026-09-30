@@ -4,15 +4,25 @@ import streamlit as st
 from geopy.geocoders import Nominatim
 
 from analysis import (
-    analyze_area,
-    get_satellite_images,
-    get_change_map,
     AnalysisValidationError,
     AnalysisDataError,
+)
+from historical_analysis import (
+    HistoricalValidationError,
+    HistoricalDataError,
+)
+from analysis_router import (
+    run_routed_analysis,
+    choose_analysis_mode,
 )
 from report import (
     generate_analysis_summary,
     get_coverage_interpretation,
+)
+from historical_report import (
+    generate_historical_summary,
+    get_historical_coverage_level,
+    answer_historical_query,
 )
 from query import answer_query
 from llm import (
@@ -23,10 +33,9 @@ from llm import (
 
 
 # ==========================================================
-# APP CONFIGURATION
+# CONFIG
 # ==========================================================
 
-APP_NAME = "SETQUERY AI"
 CONFIDENCE_THRESHOLD = 0.60
 
 RADIUS_MIN_KM = 1
@@ -35,7 +44,7 @@ RADIUS_DEFAULT_KM = 10
 
 
 # ==========================================================
-# PAGE CONFIGURATION
+# PAGE
 # ==========================================================
 
 st.set_page_config(
@@ -47,7 +56,7 @@ st.set_page_config(
 
 
 # ==========================================================
-# PROFESSIONAL GEOSPATIAL THEME
+# STYLE
 # ==========================================================
 
 st.markdown(
@@ -55,800 +64,273 @@ st.markdown(
 <style>
 
 :root {
-    --sq-bg: #071019;
-    --sq-bg-2: #0a1520;
-
-    --sq-panel: rgba(13, 27, 40, 0.90);
-    --sq-panel-2: rgba(16, 34, 49, 0.78);
-
-    --sq-border: rgba(123, 174, 209, 0.16);
-    --sq-border-strong: rgba(56, 189, 248, 0.35);
-
-    --sq-text: #eaf4fb;
-    --sq-muted: #8faabd;
-
-    --sq-accent: #27c2ff;
-    --sq-accent-2: #5b8cff;
-
-    --sq-green: #3ddc97;
-    --sq-yellow: #facc15;
-    --sq-orange: #fb923c;
-    --sq-red: #fb5d68;
-
-    --sq-radius: 16px;
+    --bg: #06111a;
+    --panel: #0b1b27;
+    --border: rgba(121,177,211,.16);
+    --cyan: #22c1f6;
+    --text: #edf7fd;
+    --muted: #8ca7b9;
 }
-
-
-/* ---------------------------------------------------------
-   APPLICATION FOUNDATION
---------------------------------------------------------- */
-
-html,
-body,
-[class*="css"] {
-    font-family:
-        Inter,
-        ui-sans-serif,
-        system-ui,
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        sans-serif;
-}
-
 
 .stApp {
     background:
         radial-gradient(
-            circle at 80% 0%,
-            rgba(39, 194, 255, 0.08),
-            transparent 30%
-        ),
-        radial-gradient(
-            circle at 10% 20%,
-            rgba(91, 140, 255, 0.06),
-            transparent 25%
+            circle at 75% -10%,
+            rgba(34,193,246,.08),
+            transparent 34%
         ),
         linear-gradient(
             180deg,
-            #071019 0%,
-            #08121b 50%,
-            #061019 100%
+            #07131d,
+            #06111a
         );
 
-    color: var(--sq-text);
+    color: var(--text);
 }
-
 
 .block-container {
     max-width: 1500px;
-
-    padding-top: 1.5rem;
+    padding-top: 3.5rem;
     padding-bottom: 4rem;
 }
 
-
-/* ---------------------------------------------------------
-   STREAMLIT CHROME
---------------------------------------------------------- */
-
-#MainMenu {
-    visibility: hidden;
-}
-
-
+#MainMenu,
 footer {
     visibility: hidden;
 }
 
-
 header[data-testid="stHeader"] {
-    background:
-        rgba(7, 16, 25, 0.72);
-
-    backdrop-filter:
-        blur(10px);
+    background: #07131d;
+    border-bottom: 1px solid var(--border);
 }
-
-
-/* ---------------------------------------------------------
-   SIDEBAR
---------------------------------------------------------- */
 
 section[data-testid="stSidebar"] {
     background:
         linear-gradient(
             180deg,
-            rgba(9, 21, 32, 0.98),
-            rgba(6, 15, 23, 0.98)
+            #081722,
+            #06121b
         );
 
-    border-right:
-        1px solid var(--sq-border);
+    border-right: 1px solid var(--border);
 }
 
-
-section[data-testid="stSidebar"] > div {
-    padding-top: 1rem;
+.sq-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
 }
 
+.sq-brand-icon {
+    width: 42px;
+    height: 42px;
 
-/* ---------------------------------------------------------
-   INPUTS
---------------------------------------------------------- */
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-div[data-baseweb="input"] > div,
-div[data-baseweb="base-input"] {
+    border-radius: 12px;
+
+    color: var(--cyan);
+
     background:
-        rgba(8, 20, 30, 0.90) !important;
+        rgba(34,193,246,.1);
 
-    border-color:
-        var(--sq-border) !important;
+    border:
+        1px solid rgba(34,193,246,.35);
 }
 
-
-div[data-baseweb="input"]:focus-within > div {
-    border-color:
-        var(--sq-accent) !important;
+.sq-brand-name {
+    color: white;
+    font-weight: 800;
+    letter-spacing: .07em;
 }
 
-
-div[data-testid="stDateInput"] input,
-div[data-testid="stTextInput"] input {
-    color:
-        var(--sq-text) !important;
+.sq-brand-sub {
+    color: #65b6dc;
+    font-size: 11px;
+    letter-spacing: .1em;
 }
 
+.sq-hero,
+.sq-result {
+    padding: 22px 24px;
 
-/* ---------------------------------------------------------
-   BUTTONS
---------------------------------------------------------- */
+    border:
+        1px solid var(--border);
+
+    border-radius: 16px;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(13,32,46,.94),
+            rgba(9,25,36,.92)
+        );
+
+    margin-bottom: 20px;
+}
+
+.sq-eyebrow {
+    color: var(--cyan);
+
+    font-size: 11px;
+    font-weight: 800;
+
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.sq-title {
+    margin-top: 6px;
+
+    color: #f4faff;
+
+    font-size:
+        clamp(28px,4vw,44px);
+
+    font-weight: 760;
+
+    line-height: 1.1;
+}
+
+.sq-location {
+    margin-top: 6px;
+
+    color: white;
+
+    font-size: 25px;
+    font-weight: 720;
+}
+
+.sq-meta {
+    margin-top: 8px;
+
+    color: var(--muted);
+
+    font-size: 14px;
+}
+
+.sq-mode {
+    display: inline-flex;
+
+    margin-top: 12px;
+
+    padding: 6px 10px;
+
+    border-radius: 999px;
+
+    border:
+        1px solid rgba(34,193,246,.32);
+
+    background:
+        rgba(34,193,246,.08);
+
+    color: #75d9ff;
+
+    font-size: 11px;
+    font-weight: 800;
+
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.sq-section {
+    color: var(--cyan);
+
+    font-size: 11px;
+    font-weight: 800;
+
+    letter-spacing: .12em;
+    text-transform: uppercase;
+
+    margin-bottom: -7px;
+}
+
+div[data-testid="stMetric"] {
+    min-height: 88px;
+
+    padding: .85rem 1rem;
+
+    border:
+        1px solid var(--border);
+
+    border-radius: 13px;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(14,34,49,.88),
+            rgba(9,25,36,.88)
+        );
+}
+
+div[data-testid="stImage"] img {
+    border-radius: 13px;
+    border: 1px solid var(--border);
+}
 
 div[data-testid="stButton"]
 button[kind="primary"],
 div[data-testid="stFormSubmitButton"]
 button[kind="primary"] {
-
     width: 100%;
-    min-height: 3rem;
+    min-height: 46px;
 
-    border:
-        1px solid rgba(
-            39,
-            194,
-            255,
-            0.45
-        );
-
+    border: 0;
     border-radius: 10px;
 
     background:
         linear-gradient(
             135deg,
-            #087aa8,
-            #159fcf
+            #087ea9,
+            #18a8d6
         );
 
     color: white;
-
-    font-weight: 700;
-    letter-spacing: 0.025em;
-
-    box-shadow:
-        0 8px 24px
-        rgba(0, 153, 204, 0.16);
-
-    transition:
-        transform 0.15s ease,
-        border-color 0.15s ease,
-        box-shadow 0.15s ease;
+    font-weight: 750;
 }
-
-
-div[data-testid="stButton"]
-button[kind="primary"]:hover,
-div[data-testid="stFormSubmitButton"]
-button[kind="primary"]:hover {
-
-    transform:
-        translateY(-1px);
-
-    border-color:
-        var(--sq-accent);
-
-    box-shadow:
-        0 10px 30px
-        rgba(0, 174, 232, 0.24);
-}
-
-
-/* ---------------------------------------------------------
-   METRIC CARDS
---------------------------------------------------------- */
-
-div[data-testid="stMetric"] {
-    min-height: 110px;
-
-    padding:
-        1rem 1.1rem;
-
-    border:
-        1px solid var(--sq-border);
-
-    border-radius:
-        14px;
-
-    background:
-        linear-gradient(
-            145deg,
-            rgba(17, 35, 50, 0.86),
-            rgba(9, 23, 34, 0.86)
-        );
-
-    box-shadow:
-        0 10px 30px
-        rgba(0, 0, 0, 0.10);
-}
-
-
-div[data-testid="stMetricLabel"] {
-    color: var(--sq-muted);
-}
-
-
-div[data-testid="stMetricValue"] {
-    color: var(--sq-text);
-}
-
-
-/* ---------------------------------------------------------
-   IMAGERY
---------------------------------------------------------- */
-
-div[data-testid="stImage"] img {
-    border-radius:
-        14px;
-
-    border:
-        1px solid
-        rgba(104, 159, 195, 0.18);
-
-    box-shadow:
-        0 14px 35px
-        rgba(0, 0, 0, 0.18);
-}
-
-
-/* ---------------------------------------------------------
-   DIVIDERS
---------------------------------------------------------- */
-
-hr {
-    margin-top:
-        2rem !important;
-
-    margin-bottom:
-        2rem !important;
-
-    border-color:
-        rgba(
-            118,
-            164,
-            194,
-            0.12
-        ) !important;
-}
-
-
-/* ---------------------------------------------------------
-   TYPOGRAPHY
---------------------------------------------------------- */
-
-h1,
-h2,
-h3 {
-    letter-spacing:
-        -0.025em;
-}
-
-
-h2 {
-    color:
-        #e6f5ff !important;
-}
-
-
-p {
-    line-height:
-        1.65;
-}
-
-
-/* ---------------------------------------------------------
-   BRAND
---------------------------------------------------------- */
-
-.sq-brand {
-    display: flex;
-
-    align-items:
-        center;
-
-    gap:
-        0.8rem;
-
-    margin-bottom:
-        1rem;
-}
-
-
-.sq-brand-mark {
-    width:
-        42px;
-
-    height:
-        42px;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    border-radius:
-        12px;
-
-    background:
-        linear-gradient(
-            145deg,
-            rgba(39, 194, 255, 0.20),
-            rgba(91, 140, 255, 0.12)
-        );
-
-    border:
-        1px solid
-        rgba(39, 194, 255, 0.30);
-
-    font-size:
-        1.25rem;
-}
-
-
-.sq-brand-title {
-    font-size:
-        1.15rem;
-
-    font-weight:
-        800;
-
-    letter-spacing:
-        0.06em;
-}
-
-
-.sq-brand-subtitle {
-    color:
-        var(--sq-muted);
-
-    font-size:
-        0.73rem;
-
-    letter-spacing:
-        0.08em;
-
-    text-transform:
-        uppercase;
-}
-
-
-/* ---------------------------------------------------------
-   HERO
---------------------------------------------------------- */
-
-.sq-hero {
-    padding:
-        1.4rem
-        1.5rem;
-
-    margin-bottom:
-        1.2rem;
-
-    border:
-        1px solid var(--sq-border);
-
-    border-radius:
-        18px;
-
-    background:
-        linear-gradient(
-            135deg,
-            rgba(18, 39, 56, 0.75),
-            rgba(9, 25, 37, 0.72)
-        );
-
-    box-shadow:
-        0 18px 45px
-        rgba(0, 0, 0, 0.13);
-}
-
-
-.sq-eyebrow {
-    color:
-        var(--sq-accent);
-
-    font-size:
-        0.72rem;
-
-    font-weight:
-        750;
-
-    letter-spacing:
-        0.12em;
-
-    text-transform:
-        uppercase;
-
-    margin-bottom:
-        0.55rem;
-}
-
-
-.sq-hero-title {
-    margin:
-        0;
-
-    color:
-        #f2f9ff;
-
-    font-size:
-        clamp(
-            1.8rem,
-            3vw,
-            2.8rem
-        );
-
-    line-height:
-        1.05;
-
-    font-weight:
-        760;
-}
-
-
-.sq-hero-copy {
-    max-width:
-        850px;
-
-    margin-top:
-        0.8rem;
-
-    margin-bottom:
-        0;
-
-    color:
-        var(--sq-muted);
-
-    font-size:
-        0.98rem;
-}
-
-
-/* ---------------------------------------------------------
-   SECTION HEADERS
---------------------------------------------------------- */
-
-.sq-section-kicker {
-    color:
-        var(--sq-accent);
-
-    font-size:
-        0.72rem;
-
-    font-weight:
-        750;
-
-    letter-spacing:
-        0.11em;
-
-    text-transform:
-        uppercase;
-
-    margin-bottom:
-        -0.5rem;
-}
-
-
-/* ---------------------------------------------------------
-   LOCATION
---------------------------------------------------------- */
-
-.sq-location-card {
-    padding:
-        1rem 1.1rem;
-
-    border:
-        1px solid var(--sq-border);
-
-    border-radius:
-        14px;
-
-    background:
-        rgba(
-            12,
-            28,
-            41,
-            0.72
-        );
-
-    color:
-        var(--sq-text);
-
-    margin-bottom:
-        1rem;
-}
-
-
-.sq-location-card strong {
-    display:
-        block;
-
-    margin-bottom:
-        0.3rem;
-
-    color:
-        var(--sq-accent);
-
-    font-size:
-        0.75rem;
-
-    text-transform:
-        uppercase;
-
-    letter-spacing:
-        0.08em;
-}
-
-
-/* ---------------------------------------------------------
-   TAGS
---------------------------------------------------------- */
-
-.sq-tag-row {
-    display:
-        flex;
-
-    flex-wrap:
-        wrap;
-
-    gap:
-        0.5rem;
-
-    margin-top:
-        0.75rem;
-}
-
-
-.sq-tag {
-    display:
-        inline-flex;
-
-    align-items:
-        center;
-
-    min-height:
-        30px;
-
-    padding:
-        0.35rem
-        0.7rem;
-
-    border-radius:
-        999px;
-
-    border:
-        1px solid var(--sq-border);
-
-    background:
-        rgba(
-            8,
-            23,
-            34,
-            0.75
-        );
-
-    color:
-        #bcd1df;
-
-    font-size:
-        0.77rem;
-}
-
-
-/* ---------------------------------------------------------
-   CHANGE LEGEND
---------------------------------------------------------- */
 
 .sq-legend {
-    display:
-        flex;
+    display: flex;
+    flex-wrap: wrap;
 
-    flex-wrap:
-        wrap;
+    gap: 8px;
 
-    gap:
-        0.6rem;
-
-    margin:
-        0.85rem
-        0
-        0.7rem;
+    margin-top: 12px;
 }
-
 
 .sq-legend-item {
-    display:
-        inline-flex;
+    display: inline-flex;
+    align-items: center;
 
-    align-items:
-        center;
+    gap: 7px;
 
-    gap:
-        0.45rem;
-
-    padding:
-        0.38rem
-        0.65rem;
+    padding: 6px 10px;
 
     border:
-        1px solid var(--sq-border);
+        1px solid var(--border);
 
-    border-radius:
-        999px;
+    border-radius: 999px;
 
-    color:
-        #c7d9e5;
+    color: #bcd0dc;
 
-    background:
-        rgba(
-            8,
-            21,
-            31,
-            0.72
-        );
-
-    font-size:
-        0.76rem;
+    font-size: 12px;
 }
-
 
 .sq-dot {
-    width:
-        8px;
+    display: inline-block;
 
-    height:
-        8px;
+    width: 8px;
+    height: 8px;
 
-    display:
-        inline-block;
-
-    flex:
-        0 0 8px;
-
-    border-radius:
-        50%;
+    border-radius: 50%;
 }
 
-
-/* ---------------------------------------------------------
-   INFORMATION CONTEXT
---------------------------------------------------------- */
-
-.sq-context {
-    padding:
-        0.9rem
-        1rem;
-
-    margin:
-        0.8rem
-        0
-        1rem;
-
-    border-left:
-        3px solid
-        var(--sq-accent);
-
-    border-radius:
-        0 10px 10px 0;
-
-    background:
-        rgba(
-            39,
-            194,
-            255,
-            0.055
-        );
-
-    color:
-        #abc2d0;
-
-    font-size:
-        0.86rem;
-
-    line-height:
-        1.55;
-}
-
-
-/* ---------------------------------------------------------
-   AI RESPONSE
---------------------------------------------------------- */
-
-.sq-answer-label {
-    margin-top:
-        0.8rem;
-
-    margin-bottom:
-        0.4rem;
-
-    color:
-        var(--sq-accent);
-
-    font-size:
-        0.72rem;
-
-    font-weight:
-        750;
-
-    letter-spacing:
-        0.09em;
-
-    text-transform:
-        uppercase;
-}
-
-
-/* ---------------------------------------------------------
-   FOOTER
---------------------------------------------------------- */
-
-.sq-footer-note {
-    margin-top:
-        1rem;
-
-    color:
-        #6f8b9c;
-
-    font-size:
-        0.76rem;
-}
-
-
-/* ---------------------------------------------------------
-   RESPONSIVE
---------------------------------------------------------- */
-
-@media (max-width: 900px) {
-
-    .block-container {
-        padding-left:
-            1rem;
-
-        padding-right:
-            1rem;
-    }
-
-    .sq-hero {
-        padding:
-            1.1rem;
-    }
-
-    .sq-hero-title {
-        font-size:
-            1.8rem;
-    }
+hr {
+    margin: 2rem 0 !important;
+    border-color: rgba(121,177,211,.11) !important;
 }
 
 </style>
@@ -861,19 +343,12 @@ p {
 # HELPERS
 # ==========================================================
 
-def render_section_header(
-    kicker,
-    title,
-    description=None,
-):
-    """
-    Render a consistent section heading.
-    """
+def section(label, title, description=None):
 
     st.markdown(
         (
-            '<div class="sq-section-kicker">'
-            f"{kicker}"
+            '<div class="sq-section">'
+            f"{label}"
             "</div>"
         ),
         unsafe_allow_html=True,
@@ -885,49 +360,32 @@ def render_section_header(
         st.caption(description)
 
 
-def format_window(window):
-    """
-    Create a readable composite-window description.
-    """
+def sensor_text(sensor_list):
 
-    if not window:
-        return None
-
-    start = window.get(
-        "effective_start"
-    )
-
-    end = window.get(
-        "effective_end_exclusive"
-    )
-
-    if not start or not end:
-        return None
-
-    return (
-        f"{start} → {end} "
-        "(end exclusive)"
+    return ", ".join(
+        (
+            f"{item['name']} "
+            f"({item['observations']})"
+        )
+        for item in sensor_list
     )
 
 
 # ==========================================================
-# SESSION STATE
+# SESSION
 # ==========================================================
 
-if "analysis_data" not in st.session_state:
-    st.session_state.analysis_data = None
+defaults = {
+    "analysis_data": None,
+    "ai_answer": None,
+    "ai_source": None,
+    "ai_status": None,
+}
 
+for key, value in defaults.items():
 
-if "ai_answer" not in st.session_state:
-    st.session_state.ai_answer = None
-
-
-if "ai_answer_source" not in st.session_state:
-    st.session_state.ai_answer_source = None
-
-
-if "ai_status_message" not in st.session_state:
-    st.session_state.ai_status_message = None
+    if key not in st.session_state:
+        st.session_state[key] = value
 
 
 # ==========================================================
@@ -939,13 +397,13 @@ with st.sidebar:
     st.markdown(
         (
             '<div class="sq-brand">'
-            '<div class="sq-brand-mark">◉</div>'
+            '<div class="sq-brand-icon">◉</div>'
             "<div>"
-            '<div class="sq-brand-title">'
+            '<div class="sq-brand-name">'
             "SETQUERY AI"
             "</div>"
-            '<div class="sq-brand-subtitle">'
-            "Geospatial Intelligence"
+            '<div class="sq-brand-sub">'
+            "GEOSPATIAL INTELLIGENCE"
             "</div>"
             "</div>"
             "</div>"
@@ -954,39 +412,26 @@ with st.sidebar:
     )
 
     st.caption(
-        "Satellite-derived land-cover change analysis "
-        "using Sentinel-2 and Dynamic World."
+        "Automatic modern / historical satellite analysis"
     )
 
     st.divider()
 
-    st.markdown(
-        "### New analysis"
-    )
+    st.markdown("### New analysis")
 
     location_name = st.text_input(
         "Location",
-        placeholder=(
-            "Mumbai, Maharashtra, India"
-        ),
+        placeholder="Mumbai, Delhi, London...",
     )
 
     before_date = st.date_input(
         "Before target date",
-        value=date(
-            2022,
-            9,
-            15,
-        ),
+        value=date(2022, 9, 15),
     )
 
     after_date = st.date_input(
         "After target date",
-        value=date(
-            2025,
-            9,
-            15,
-        ),
+        value=date(2025, 9, 15),
     )
 
     radius_km = st.slider(
@@ -997,70 +442,57 @@ with st.sidebar:
         format="%d km",
     )
 
-    st.caption(
-        "Target dates are the centers of composite "
-        "search windows, not exact acquisition dates."
+    predicted_mode = choose_analysis_mode(
+        before_date,
+        after_date,
     )
 
-    analyze_clicked = st.button(
+    if predicted_mode == "modern_ml":
+
+        st.info(
+            "Mode: Modern ML\n\n"
+            "Sentinel-2 + Dynamic World"
+        )
+
+    else:
+
+        st.info(
+            "Mode: Historical Spectral\n\n"
+            "Landsat comparison"
+        )
+
+    run_clicked = st.button(
         "RUN SATELLITE ANALYSIS",
         type="primary",
         use_container_width=True,
     )
 
-    st.divider()
-
-    st.markdown(
-        "#### Analysis method"
-    )
-
-    st.markdown(
-        (
-            '<div class="sq-tag-row">'
-            '<span class="sq-tag">'
-            "Sentinel-2"
-            "</span>"
-            '<span class="sq-tag">'
-            "Dynamic World ML"
-            "</span>"
-            '<span class="sq-tag">'
-            "60% confidence"
-            "</span>"
-            "</div>"
-        ),
-        unsafe_allow_html=True,
-    )
-
-    st.caption(
-        "Measurements are satellite-derived ML "
-        "estimates, not surveyed ground truth."
-    )
-
 
 # ==========================================================
-# ANALYSIS EXECUTION
+# RUN
 # ==========================================================
 
-if analyze_clicked:
+if run_clicked:
+
+    # Never display stale results after a failed new request.
+    st.session_state.analysis_data = None
+    st.session_state.ai_answer = None
+    st.session_state.ai_source = None
+    st.session_state.ai_status = None
 
     if not location_name.strip():
 
         st.error(
-            "Enter a location before running the analysis."
+            "Enter a location."
         )
 
     else:
 
         try:
 
-            with st.status(
-                "Preparing geospatial analysis...",
-                expanded=True,
-            ) as status:
-
-                st.write(
-                    "Resolving location..."
-                )
+            with st.spinner(
+                "Running satellite analysis..."
+            ):
 
                 geocoder = Nominatim(
                     user_agent=(
@@ -1068,81 +500,22 @@ if analyze_clicked:
                     )
                 )
 
-                location_result = (
-                    geocoder.geocode(
-                        location_name,
-                        timeout=10,
-                    )
+                resolved = geocoder.geocode(
+                    location_name,
+                    timeout=10,
                 )
 
-                if location_result is None:
+                if resolved is None:
 
                     raise ValueError(
-                        "Location not found. Try a more "
-                        "specific place name."
+                        "Location not found."
                     )
 
-                latitude = (
-                    location_result.latitude
-                )
-
-                longitude = (
-                    location_result.longitude
-                )
-
-                st.write(
-                    "Processing Dynamic World "
-                    "land-cover probabilities..."
-                )
-
-                result = analyze_area(
-                    latitude=latitude,
-                    longitude=longitude,
-                    before_date=str(
-                        before_date
-                    ),
-                    after_date=str(
-                        after_date
-                    ),
-                    radius_km=radius_km,
-                    confidence_threshold=(
-                        CONFIDENCE_THRESHOLD
-                    ),
-                )
-
-                st.write(
-                    "Building cloud-masked "
-                    "Sentinel-2 composites..."
-                )
-
-                images = (
-                    get_satellite_images(
-                        latitude=latitude,
-                        longitude=longitude,
-                        before_date=str(
-                            before_date
-                        ),
-                        after_date=str(
-                            after_date
-                        ),
-                        radius_km=radius_km,
-                    )
-                )
-
-                st.write(
-                    "Rendering high-confidence "
-                    "transition map..."
-                )
-
-                change_map = get_change_map(
-                    latitude=latitude,
-                    longitude=longitude,
-                    before_date=str(
-                        before_date
-                    ),
-                    after_date=str(
-                        after_date
-                    ),
+                routed = run_routed_analysis(
+                    latitude=resolved.latitude,
+                    longitude=resolved.longitude,
+                    before_date=str(before_date),
+                    after_date=str(after_date),
                     radius_km=radius_km,
                     confidence_threshold=(
                         CONFIDENCE_THRESHOLD
@@ -1151,13 +524,13 @@ if analyze_clicked:
 
                 st.session_state.analysis_data = {
                     "location":
-                        location_result.address,
+                        resolved.address,
 
                     "latitude":
-                        latitude,
+                        resolved.latitude,
 
                     "longitude":
-                        longitude,
+                        resolved.longitude,
 
                     "radius_km":
                         radius_km,
@@ -1168,46 +541,20 @@ if analyze_clicked:
                     "after_date":
                         str(after_date),
 
-                    "result":
-                        result,
-
-                    "images":
-                        images,
-
-                    "change_map":
-                        change_map,
+                    **routed,
                 }
 
-                # A new analysis invalidates the old
-                # question/answer context.
-                st.session_state.ai_answer = None
-
-                st.session_state.ai_answer_source = None
-
-                st.session_state.ai_status_message = None
-
-                status.update(
-                    label=(
-                        "Analysis completed successfully"
-                    ),
-                    state="complete",
-                    expanded=False,
-                )
-
-        except AnalysisValidationError as error:
-
-            st.error(
-                f"Invalid analysis request: {error}"
+            st.success(
+                "Analysis completed."
             )
 
-        except AnalysisDataError as error:
-
-            st.error(
-                "Satellite analysis could not be "
-                f"completed: {error}"
-            )
-
-        except ValueError as error:
+        except (
+            AnalysisValidationError,
+            HistoricalValidationError,
+            AnalysisDataError,
+            HistoricalDataError,
+            ValueError,
+        ) as error:
 
             st.error(
                 str(error)
@@ -1216,838 +563,491 @@ if analyze_clicked:
         except Exception as error:
 
             st.error(
-                "The analysis could not be completed. "
-                "An unexpected service or network "
-                "error occurred."
+                "Unexpected analysis failure."
             )
 
             with st.expander(
                 "Technical details"
             ):
-
-                st.exception(
-                    error
-                )
+                st.exception(error)
 
 
 # ==========================================================
-# HERO
+# EMPTY PAGE
 # ==========================================================
 
-st.markdown(
-    (
-        '<div class="sq-hero">'
-        '<div class="sq-eyebrow">'
-        "Satellite Change Intelligence"
-        "</div>"
-        '<div class="sq-hero-title">'
-        "Understand land-cover change from space."
-        "</div>"
-        '<p class="sq-hero-copy">'
-        "Compare satellite-derived land-cover conditions "
-        "across two time periods, inspect selected "
-        "high-confidence transitions, and ask grounded "
-        "questions about the measured results."
-        "</p>"
-        "</div>"
-    ),
-    unsafe_allow_html=True,
-)
+data = st.session_state.analysis_data
 
-
-# ==========================================================
-# LOAD SAVED ANALYSIS
-# ==========================================================
-
-data = (
-    st.session_state.analysis_data
-)
-
-
-# ==========================================================
-# EMPTY WORKSPACE
-# ==========================================================
 
 if data is None:
 
-    render_section_header(
-        "Workspace",
-        "Start a new analysis",
+    st.markdown(
         (
-            "Configure a location and target dates "
-            "in the sidebar to generate a "
-            "satellite-change analysis."
+            '<div class="sq-hero">'
+            '<div class="sq-eyebrow">'
+            "Satellite Change Intelligence"
+            "</div>"
+            '<div class="sq-title">'
+            "Analyze land change across decades."
+            "</div>"
+            '<div class="sq-meta">'
+            "Modern requests use Sentinel-2 and "
+            "Dynamic World ML. Earlier requests use "
+            "a common Landsat spectral comparison."
+            "</div>"
+            "</div>"
         ),
+        unsafe_allow_html=True,
     )
 
-    e1, e2, e3 = st.columns(3)
+    c1, c2 = st.columns(2)
 
-    e1.metric(
-        "Satellite source",
-        "Sentinel-2",
+    c1.metric(
+        "Modern mode",
+        "Sentinel-2 + DW",
     )
 
-    e2.metric(
-        "Land-cover model",
-        "Dynamic World",
-    )
-
-    e3.metric(
-        "Confidence rule",
-        "60%",
-    )
-
-    st.info(
-        "SetQuery AI is designed for area-level "
-        "land-cover patterns. It should not be used "
-        "for exact property-level or surveyed "
-        "ground-truth claims."
+    c2.metric(
+        "Historical mode",
+        "Landsat",
     )
 
     st.stop()
 
 
 # ==========================================================
-# ANALYSIS DATA
+# COMMON RESULT VARIABLES
 # ==========================================================
+
+mode = data["mode"]
+
+result = data["result"]
+
+images = data["images"]
 
 location = data["location"]
 
-latitude = data["latitude"]
-longitude = data["longitude"]
+before = data["before_date"]
+after = data["after_date"]
 
-analyzed_radius = data[
-    "radius_km"
-]
-
-analyzed_before = data[
-    "before_date"
-]
-
-analyzed_after = data[
-    "after_date"
-]
-
-result = data["result"]
-images = data["images"]
-change_map = data["change_map"]
-
-coverage = result[
-    "coverage_percent"
-]
-
-coverage_info = (
-    get_coverage_interpretation(
-        coverage
-    )
-)
-
-coverage_level = (
-    coverage_info["level"]
-)
-
-coverage_description = (
-    coverage_info["description"]
-)
-
-
-# ==========================================================
-# ANALYSIS OVERVIEW
-# ==========================================================
-
-render_section_header(
-    "Analysis workspace",
-    "Study area",
-)
+radius = data["radius_km"]
 
 
 st.markdown(
     (
-        '<div class="sq-location-card">'
-        "<strong>Resolved location</strong>"
+        '<div class="sq-result">'
+        '<div class="sq-eyebrow">'
+        "ACTIVE ANALYSIS"
+        "</div>"
+        '<div class="sq-location">'
         f"{location}"
+        "</div>"
+        '<div class="sq-meta">'
+        f"{before} → {after}"
+        f" · {radius} km radius"
+        "</div>"
+        '<div class="sq-mode">'
+        f"{data['mode_label']} · "
+        f"{data['approximate_resolution_m']} m"
+        "</div>"
         "</div>"
     ),
     unsafe_allow_html=True,
 )
 
 
-m1, m2, m3, m4 = (
-    st.columns(4)
-)
+# ==========================================================
+# MODERN MODE
+# ==========================================================
 
+if mode == "modern_ml":
 
-m1.metric(
-    "Latitude",
-    f"{latitude:.5f}",
-)
+    coverage = result[
+        "coverage_percent"
+    ]
 
+    quality = (
+        get_coverage_interpretation(
+            coverage
+        )
+    )
 
-m2.metric(
-    "Longitude",
-    f"{longitude:.5f}",
-)
+    if quality["level"] == "VERY LOW":
 
+        st.error(
+            "VERY LOW comparable coverage — "
+            f"{quality['description']}"
+        )
 
-m3.metric(
-    "Radius",
-    f"{analyzed_radius} km",
-)
+    section(
+        "Visualization",
+        "Satellite change viewer",
+    )
 
+    change_tab, before_tab, after_tab, compare_tab = (
+        st.tabs(
+            [
+                "CHANGE MAP",
+                "BEFORE",
+                "AFTER",
+                "SIDE BY SIDE",
+            ]
+        )
+    )
 
-m4.metric(
-    "Requested area",
-    (
-        f"{result['total_area_km2']:.2f} km²"
-    ),
-)
+    with change_tab:
+
+        st.image(
+            data[
+                "change_map"
+            ][
+                "change_url"
+            ],
+            width="stretch",
+        )
+
+        st.markdown(
+            (
+                '<div class="sq-legend">'
+                '<span class="sq-legend-item">'
+                '<span class="sq-dot" '
+                'style="background:#f00"></span>'
+                "Vegetation → Built-up"
+                "</span>"
+                '<span class="sq-legend-item">'
+                '<span class="sq-dot" '
+                'style="background:#0f0"></span>'
+                "Built-up → Vegetation"
+                "</span>"
+                '<span class="sq-legend-item">'
+                '<span class="sq-dot" '
+                'style="background:#ff0"></span>'
+                "Bare → Built-up"
+                "</span>"
+                '<span class="sq-legend-item">'
+                '<span class="sq-dot" '
+                'style="background:#06f"></span>'
+                "Non-water → Water"
+                "</span>"
+                '<span class="sq-legend-item">'
+                '<span class="sq-dot" '
+                'style="background:#f80"></span>'
+                "Water → Non-water"
+                "</span>"
+                "</div>"
+            ),
+            unsafe_allow_html=True,
+        )
+
+    with before_tab:
+
+        st.image(
+            images["before_url"],
+            width="stretch",
+        )
+
+    with after_tab:
+
+        st.image(
+            images["after_url"],
+            width="stretch",
+        )
+
+    with compare_tab:
+
+        c1, c2 = st.columns(2)
+
+        c1.image(
+            images["before_url"],
+            caption=f"Before target · {before}",
+            width="stretch",
+        )
+
+        c2.image(
+            images["after_url"],
+            caption=f"After target · {after}",
+            width="stretch",
+        )
+
+    st.divider()
+
+    section(
+        "Measurements",
+        "Land-cover comparison",
+        (
+            "Measurements apply only to "
+            "high-confidence comparable pixels."
+        ),
+    )
+
+    m1, m2, m3, m4 = st.columns(4)
+
+    m1.metric(
+        "Coverage",
+        f"{coverage:.1f}%",
+    )
+
+    m2.metric(
+        "Comparable area",
+        f"{result['comparable_area_km2']:.2f} km²",
+    )
+
+    veg_change = (
+        result["after_vegetation_km2"]
+        - result["before_vegetation_km2"]
+    )
+
+    built_change = (
+        result["after_built_km2"]
+        - result["before_built_km2"]
+    )
+
+    m3.metric(
+        "Vegetation net",
+        f"{veg_change:+.3f} km²",
+    )
+
+    m4.metric(
+        "Built-up net",
+        f"{built_change:+.3f} km²",
+    )
+
+    st.divider()
+
+    section(
+        "Transitions",
+        "High-confidence transitions",
+    )
+
+    t1, t2, t3 = st.columns(3)
+
+    t1.metric(
+        "Vegetation → Built",
+        (
+            f"{result['vegetation_to_built_km2']:.4f} km²"
+        ),
+    )
+
+    t2.metric(
+        "Built → Vegetation",
+        (
+            f"{result['built_to_vegetation_km2']:.4f} km²"
+        ),
+    )
+
+    t3.metric(
+        "Bare → Built",
+        (
+            f"{result['bare_to_built_km2']:.4f} km²"
+        ),
+    )
+
+    summary = generate_analysis_summary(
+        location,
+        before,
+        after,
+        result,
+    )
 
 
 # ==========================================================
-# QUALITY SNAPSHOT
+# HISTORICAL MODE
 # ==========================================================
-
-st.divider()
-
-
-render_section_header(
-    "Confidence-aware comparison",
-    "Analysis quality",
-    (
-        "Coverage measures the portion of the "
-        "requested region that passed the ML "
-        "confidence requirement in both periods. "
-        "It is not an accuracy score."
-    ),
-)
-
-
-q1, q2, q3, q4 = (
-    st.columns(4)
-)
-
-
-q1.metric(
-    "Comparable coverage",
-    f"{coverage:.1f}%",
-)
-
-
-q2.metric(
-    "Comparable area",
-    (
-        f"{result['comparable_area_km2']:.2f} km²"
-    ),
-)
-
-
-q3.metric(
-    "DW observations · before",
-    result[
-        "before_observations"
-    ],
-)
-
-
-q4.metric(
-    "DW observations · after",
-    result[
-        "after_observations"
-    ],
-)
-
-
-if coverage_level == "GOOD":
-
-    st.success(
-        "GOOD comparable coverage — "
-        f"{coverage_description}"
-    )
-
-
-elif coverage_level == "MODERATE":
-
-    st.warning(
-        "MODERATE comparable coverage — "
-        f"{coverage_description}"
-    )
-
-
-elif coverage_level == "LIMITED":
-
-    st.warning(
-        "LIMITED comparable coverage — "
-        f"{coverage_description}"
-    )
-
 
 else:
 
-    st.error(
-        "VERY LOW comparable coverage — "
-        f"{coverage_description}"
+    coverage = result[
+        "coverage_percent"
+    ]
+
+    quality = (
+        get_historical_coverage_level(
+            coverage
+        )
     )
-
-
-for warning in result.get(
-    "warnings",
-    [],
-):
 
     st.warning(
-        warning
+        "Historical Spectral mode does not use "
+        "Dynamic World classification. NDVI, MNDWI "
+        "and NDBI are spectral indicators rather than "
+        "direct land-cover area measurements."
     )
 
-
-# ==========================================================
-# TEMPORAL METADATA
-# ==========================================================
-
-before_window = (
-    result.get(
-        "before_window"
+    section(
+        "Historical imagery",
+        "Landsat comparison",
     )
-    or images.get(
-        "before_window"
+
+    before_tab, after_tab, compare_tab = (
+        st.tabs(
+            [
+                "BEFORE",
+                "AFTER",
+                "SIDE BY SIDE",
+            ]
+        )
     )
-)
 
+    with before_tab:
 
-after_window = (
-    result.get(
-        "after_window"
-    )
-    or images.get(
-        "after_window"
-    )
-)
-
-
-before_window_text = (
-    format_window(
-        before_window
-    )
-)
-
-
-after_window_text = (
-    format_window(
-        after_window
-    )
-)
-
-
-if (
-    before_window_text
-    or after_window_text
-):
-
-    with st.expander(
-        "Composite timing details"
-    ):
-
-        st.write(
-            "The selected dates are target dates. "
-            "SetQuery AI builds composites from "
-            "observations within surrounding "
-            "search windows."
+        st.image(
+            images["before_url"],
+            width="stretch",
         )
 
-        tc1, tc2 = (
-            st.columns(2)
-        )
-
-        with tc1:
-
-            st.markdown(
-                "**BEFORE target:** "
-                f"{analyzed_before}"
-            )
-
-            if before_window_text:
-
-                st.code(
-                    before_window_text,
-                    language=None,
-                )
-
-        with tc2:
-
-            st.markdown(
-                "**AFTER target:** "
-                f"{analyzed_after}"
-            )
-
-            if after_window_text:
-
-                st.code(
-                    after_window_text,
-                    language=None,
-                )
-
-        separation = (
-            result.get(
-                "date_separation_days"
+        st.caption(
+            "Sensors: "
+            + sensor_text(
+                images[
+                    "before_sensors"
+                ]
             )
         )
 
-        if separation is not None:
+    with after_tab:
 
-            st.caption(
-                "Target-date separation: "
-                f"{separation} days."
+        st.image(
+            images["after_url"],
+            width="stretch",
+        )
+
+        st.caption(
+            "Sensors: "
+            + sensor_text(
+                images[
+                    "after_sensors"
+                ]
             )
+        )
 
+    with compare_tab:
 
-# ==========================================================
-# SENTINEL-2 IMAGERY
-# ==========================================================
+        c1, c2 = st.columns(2)
 
-st.divider()
+        c1.image(
+            images["before_url"],
+            caption=(
+                f"Before · {before}"
+            ),
+            width="stretch",
+        )
 
+        c2.image(
+            images["after_url"],
+            caption=(
+                f"After · {after}"
+            ),
+            width="stretch",
+        )
 
-render_section_header(
-    "Sentinel-2",
-    "Before / After imagery",
-    (
-        "Cloud-masked median composites assembled "
-        "from observations around each target date."
-    ),
-)
+    st.divider()
 
-
-before_img, after_img = (
-    st.columns(2)
-)
-
-
-with before_img:
-
-    st.markdown(
-        f"### Before · {analyzed_before}"
+    section(
+        "Spectral measurements",
+        "Historical comparison",
+        (
+            "Mean index values are calculated only "
+            "where valid Landsat pixels are available "
+            "in both periods."
+        ),
     )
 
-    st.image(
-        images[
-            "before_url"
-        ],
-        width="stretch",
+    h1, h2, h3, h4 = st.columns(4)
+
+    h1.metric(
+        "Comparable coverage",
+        f"{coverage:.1f}%",
     )
 
-    st.caption(
-        f"{images['before_sentinel_observations']} "
-        "Sentinel-2 observations in the composite."
+    h2.metric(
+        "NDVI Δ",
+        f"{result['ndvi_change']:+.3f}",
     )
 
-
-with after_img:
-
-    st.markdown(
-        f"### After · {analyzed_after}"
+    h3.metric(
+        "MNDWI Δ",
+        f"{result['mndwi_change']:+.3f}",
     )
 
-    st.image(
-        images[
-            "after_url"
-        ],
-        width="stretch",
+    h4.metric(
+        "NDBI Δ",
+        f"{result['ndbi_change']:+.3f}",
     )
 
-    st.caption(
-        f"{images['after_sentinel_observations']} "
-        "Sentinel-2 observations in the composite."
-    )
-
-
-# ==========================================================
-# CHANGE MAP
-# ==========================================================
-
-st.divider()
-
-
-render_section_header(
-    "Transition intelligence",
-    "High-confidence change map",
-    (
-        "Selected Dynamic World class transitions "
-        "where both periods passed the configured "
-        "confidence rule."
-    ),
-)
-
-
-st.image(
-    change_map[
-        "change_url"
-    ],
-    width="stretch",
-)
-
-
-# IMPORTANT:
-# This legend intentionally uses compact HTML.
-# Indented HTML can be interpreted by Markdown as code.
-
-legend_html = (
-    '<div class="sq-legend">'
-    '<span class="sq-legend-item">'
-    '<span class="sq-dot" '
-    'style="background:#ff0000"></span>'
-    "Vegetation → Built-up"
-    "</span>"
-    '<span class="sq-legend-item">'
-    '<span class="sq-dot" '
-    'style="background:#00ff00"></span>'
-    "Built-up → Vegetation"
-    "</span>"
-    '<span class="sq-legend-item">'
-    '<span class="sq-dot" '
-    'style="background:#ffff00"></span>'
-    "Bare → Built-up"
-    "</span>"
-    '<span class="sq-legend-item">'
-    '<span class="sq-dot" '
-    'style="background:#0066ff"></span>'
-    "Non-water → Water"
-    "</span>"
-    '<span class="sq-legend-item">'
-    '<span class="sq-dot" '
-    'style="background:#ff8800"></span>'
-    "Water → Non-water"
-    "</span>"
-    "</div>"
-)
-
-
-st.markdown(
-    legend_html,
-    unsafe_allow_html=True,
-)
-
-
-context_html = (
-    '<div class="sq-context">'
-    "Change pixels may be enlarged on this "
-    "visualization to make small transitions visible. "
-    "Numerical area statistics are calculated from "
-    "the original classification pixels and are "
-    "not enlarged."
-    "</div>"
-)
-
-
-st.markdown(
-    context_html,
-    unsafe_allow_html=True,
-)
-
-
-# ==========================================================
-# LAND COVER
-# ==========================================================
-
-st.divider()
-
-
-render_section_header(
-    "Measured land cover",
-    "Before / After classification",
-    (
-        "Areas below refer only to pixels included "
-        "in the high-confidence comparable subset."
-    ),
-)
-
-
-before_col, after_col = (
-    st.columns(2)
-)
-
-
-with before_col:
-
-    st.markdown(
-        f"### Before · {analyzed_before}"
-    )
-
-    lc1, lc2 = (
+    before_indices, after_indices = (
         st.columns(2)
     )
 
-    lc1.metric(
-        "Vegetation",
-        (
-            f"{result['before_vegetation_km2']:.2f} km²"
-        ),
-    )
+    with before_indices:
 
-    lc2.metric(
-        "Built-up",
-        (
-            f"{result['before_built_km2']:.2f} km²"
-        ),
-    )
+        st.markdown(
+            f"### Before · {before}"
+        )
 
-    lc3, lc4 = (
-        st.columns(2)
-    )
+        st.metric(
+            "Mean NDVI",
+            f"{result['before_mean_ndvi']:.3f}",
+        )
 
-    lc3.metric(
-        "Water",
-        (
-            f"{result['before_water_km2']:.2f} km²"
-        ),
-    )
+        st.metric(
+            "Mean MNDWI",
+            f"{result['before_mean_mndwi']:.3f}",
+        )
 
-    lc4.metric(
-        "Bare ground",
-        (
-            f"{result['before_bare_km2']:.2f} km²"
-        ),
-    )
+        st.metric(
+            "Mean NDBI",
+            f"{result['before_mean_ndbi']:.3f}",
+        )
 
+    with after_indices:
 
-with after_col:
+        st.markdown(
+            f"### After · {after}"
+        )
 
-    st.markdown(
-        f"### After · {analyzed_after}"
-    )
+        st.metric(
+            "Mean NDVI",
+            f"{result['after_mean_ndvi']:.3f}",
+        )
 
-    lc5, lc6 = (
-        st.columns(2)
-    )
+        st.metric(
+            "Mean MNDWI",
+            f"{result['after_mean_mndwi']:.3f}",
+        )
 
-    lc5.metric(
-        "Vegetation",
-        (
-            f"{result['after_vegetation_km2']:.2f} km²"
-        ),
-    )
+        st.metric(
+            "Mean NDBI",
+            f"{result['after_mean_ndbi']:.3f}",
+        )
 
-    lc6.metric(
-        "Built-up",
-        (
-            f"{result['after_built_km2']:.2f} km²"
-        ),
-    )
+    for warning in result[
+        "warnings"
+    ]:
 
-    lc7, lc8 = (
-        st.columns(2)
-    )
+        st.warning(
+            warning
+        )
 
-    lc7.metric(
-        "Water",
-        (
-            f"{result['after_water_km2']:.2f} km²"
-        ),
-    )
-
-    lc8.metric(
-        "Bare ground",
-        (
-            f"{result['after_bare_km2']:.2f} km²"
-        ),
+    summary = (
+        generate_historical_summary(
+            location,
+            before,
+            after,
+            result,
+        )
     )
 
 
 # ==========================================================
-# NET DIFFERENCE
+# SUMMARY
 # ==========================================================
 
 st.divider()
 
-
-render_section_header(
-    "Comparison",
-    "Net land-cover difference",
-    (
-        "Net differences and explicit transitions "
-        "are different measurements."
-    ),
-)
-
-
-vegetation_change = (
-    result[
-        "after_vegetation_km2"
-    ]
-    -
-    result[
-        "before_vegetation_km2"
-    ]
-)
-
-
-built_change = (
-    result[
-        "after_built_km2"
-    ]
-    -
-    result[
-        "before_built_km2"
-    ]
-)
-
-
-water_change = (
-    result[
-        "after_water_km2"
-    ]
-    -
-    result[
-        "before_water_km2"
-    ]
-)
-
-
-bare_change = (
-    result[
-        "after_bare_km2"
-    ]
-    -
-    result[
-        "before_bare_km2"
-    ]
-)
-
-
-n1, n2, n3, n4 = (
-    st.columns(4)
-)
-
-
-n1.metric(
-    "Vegetation",
-    (
-        f"{vegetation_change:+.3f} km²"
-    ),
-)
-
-
-n2.metric(
-    "Built-up",
-    (
-        f"{built_change:+.3f} km²"
-    ),
-)
-
-
-n3.metric(
-    "Water",
-    (
-        f"{water_change:+.3f} km²"
-    ),
-)
-
-
-n4.metric(
-    "Bare ground",
-    (
-        f"{bare_change:+.3f} km²"
-    ),
-)
-
-
-st.caption(
-    "Net differences apply only to the "
-    "high-confidence comparable subset."
-)
-
-
-# ==========================================================
-# TRANSITIONS
-# ==========================================================
-
-st.divider()
-
-
-render_section_header(
-    "Change matrix",
-    "Detected transitions",
-    (
-        "These measurements represent selected "
-        "explicit before-to-after class transitions."
-    ),
-)
-
-
-t1, t2, t3 = (
-    st.columns(3)
-)
-
-
-t1.metric(
-    "Vegetation → Built-up",
-    (
-        f"{result['vegetation_to_built_km2']:.4f} km²"
-    ),
-)
-
-
-t2.metric(
-    "Built-up → Vegetation",
-    (
-        f"{result['built_to_vegetation_km2']:.4f} km²"
-    ),
-)
-
-
-t3.metric(
-    "Bare → Built-up",
-    (
-        f"{result['bare_to_built_km2']:.4f} km²"
-    ),
-)
-
-
-t4, t5 = (
-    st.columns(2)
-)
-
-
-t4.metric(
-    "Water → Non-water",
-    (
-        f"{result['water_to_nonwater_km2']:.4f} km²"
-    ),
-)
-
-
-t5.metric(
-    "Non-water → Water",
-    (
-        f"{result['nonwater_to_water_km2']:.4f} km²"
-    ),
-)
-
-
-# ==========================================================
-# DETERMINISTIC ANALYSIS
-# ==========================================================
-
-st.divider()
-
-
-render_section_header(
+section(
     "Grounded interpretation",
     "SetQuery AI analysis",
-    (
-        "Generated deterministically from the "
-        "measured satellite and Dynamic World results."
-    ),
 )
-
-
-summary = (
-    generate_analysis_summary(
-        location=location,
-        before_date=analyzed_before,
-        after_date=analyzed_after,
-        result=result,
-    )
-)
-
 
 st.info(
     summary
@@ -2055,141 +1055,89 @@ st.info(
 
 
 # ==========================================================
-# ASK SETQUERY AI
+# Q&A
 # ==========================================================
 
 st.divider()
 
-
-render_section_header(
+section(
     "Grounded Q&A",
     "Ask SetQuery AI",
-    (
-        "Gemini receives only the structured analysis "
-        "measurements plus your question. If Gemini is "
-        "unavailable, SetQuery AI uses its deterministic "
-        "local fallback."
-    ),
 )
 
 
 with st.form(
-    "analysis_question_form",
-    clear_on_submit=False,
+    "question_form",
 ):
 
-    user_question = (
-        st.text_input(
-            "Question about this analysis",
-            placeholder=(
-                "e.g. How did built-up land change?"
-            ),
-        )
+    question = st.text_input(
+        "Question",
+        placeholder=(
+            "What changed in this analysis?"
+        ),
     )
 
-    ask_clicked = (
-        st.form_submit_button(
-            "ASK SETQUERY AI",
-            type="primary",
-            use_container_width=True,
-        )
+    ask = st.form_submit_button(
+        "ASK SETQUERY AI",
+        type="primary",
+        use_container_width=True,
     )
 
 
-if ask_clicked:
+if ask and question.strip():
 
-    if not user_question.strip():
+    if mode == "historical_spectral":
 
-        st.warning(
-            "Enter a question about the "
-            "completed analysis."
+        # Historical Gemini grounding is intentionally
+        # not enabled until a separate spectral context
+        # is added to llm.py.
+        answer = (
+            answer_historical_query(
+                question,
+                result,
+            )
+        )
+
+        st.session_state.ai_source = (
+            "historical-local"
         )
 
     else:
 
-        with st.spinner(
-            "Generating a grounded answer..."
+        try:
+
+            answer = ask_gemini(
+                question,
+                result,
+                location,
+                before,
+                after,
+            )
+
+            st.session_state.ai_source = (
+                "gemini"
+            )
+
+        except (
+            LLMUnavailableError,
+            LLMConfigurationError,
         ):
 
-            try:
+            answer = answer_query(
+                question,
+                result,
+            )
 
-                answer = ask_gemini(
-                    question=(
-                        user_question
-                    ),
-                    result=result,
-                    location=location,
-                    before_date=(
-                        analyzed_before
-                    ),
-                    after_date=(
-                        analyzed_after
-                    ),
-                )
+            st.session_state.ai_source = (
+                "fallback"
+            )
 
-                st.session_state.ai_answer = (
-                    answer
-                )
+    st.session_state.ai_answer = answer
 
-                st.session_state.ai_answer_source = (
-                    "gemini"
-                )
-
-                st.session_state.ai_status_message = (
-                    None
-                )
-
-            except (
-                LLMUnavailableError,
-                LLMConfigurationError,
-            ) as error:
-
-                answer = answer_query(
-                    user_question,
-                    result,
-                )
-
-                st.session_state.ai_answer = (
-                    answer
-                )
-
-                st.session_state.ai_answer_source = (
-                    "fallback"
-                )
-
-                st.session_state.ai_status_message = (
-                    str(error)
-                )
-
-            except Exception as error:
-
-                answer = answer_query(
-                    user_question,
-                    result,
-                )
-
-                st.session_state.ai_answer = (
-                    answer
-                )
-
-                st.session_state.ai_answer_source = (
-                    "fallback-error"
-                )
-
-                st.session_state.ai_status_message = (
-                    str(error)
-                )
-
-
-# ==========================================================
-# AI RESPONSE DISPLAY
-# ==========================================================
 
 if st.session_state.ai_answer:
 
-    source = (
-        st.session_state.ai_answer_source
-    )
+    source = st.session_state.ai_source
 
     if source == "gemini":
 
@@ -2197,38 +1145,17 @@ if st.session_state.ai_answer:
             "Gemini grounded response"
         )
 
-    elif source == "fallback":
+    elif source == "historical-local":
 
-        st.warning(
-            "Gemini is unavailable. Showing the "
-            "deterministic grounded fallback response."
+        st.info(
+            "Historical deterministic response"
         )
-
-        if (
-            st.session_state.ai_status_message
-        ):
-
-            st.caption(
-                "AI service status: "
-                f"{st.session_state.ai_status_message}"
-            )
 
     else:
 
         st.warning(
-            "The AI service encountered an unexpected "
-            "error. Showing the deterministic grounded "
-            "fallback response."
+            "Gemini unavailable — local grounded fallback"
         )
-
-    st.markdown(
-        (
-            '<div class="sq-answer-label">'
-            "SetQuery response"
-            "</div>"
-        ),
-        unsafe_allow_html=True,
-    )
 
     st.write(
         st.session_state.ai_answer
@@ -2236,61 +1163,65 @@ if st.session_state.ai_answer:
 
 
 # ==========================================================
-# METHODOLOGY / LIMITATIONS
+# METADATA
 # ==========================================================
 
 st.divider()
 
-
-render_section_header(
-    "Methodology",
-    "Interpretation boundaries",
-)
-
-
 with st.expander(
-    "Data sources, confidence and limitations"
+    "Analysis metadata & limitations"
 ):
+
+    st.write(
+        f"Mode: `{data['mode_label']}`"
+    )
+
+    st.write(
+        f"Method: `{data['method']}`"
+    )
+
+    st.write(
+        "Approximate spatial resolution: "
+        f"`{data['approximate_resolution_m']} m`"
+    )
+
+    st.write(
+        f"Latitude: `{data['latitude']:.5f}`"
+    )
+
+    st.write(
+        f"Longitude: `{data['longitude']:.5f}`"
+    )
+
+    st.write(
+        f"Requested radius: `{radius} km`"
+    )
+
+    if mode == "historical_spectral":
+
+        st.write(
+            "Before sensors: "
+            + sensor_text(
+                result[
+                    "before_sensors"
+                ]
+            )
+        )
+
+        st.write(
+            "After sensors: "
+            + sensor_text(
+                result[
+                    "after_sensors"
+                ]
+            )
+
+        )
 
     st.markdown(
         """
-- Sentinel-2 is used for cloud-masked true-color
-  composite imagery.
-
-- Google's Dynamic World machine-learning dataset is
-  used for land-cover probabilities and classification.
-
-- A pixel enters the high-confidence comparison only
-  when both periods meet the configured 60% confidence
-  threshold.
-
-- Comparable coverage is not classification accuracy.
-
-- Selected dates are target dates at the center of
-  composite search windows; they are not necessarily
-  satellite acquisition dates.
-
-- Transition-map pixels can be visually enlarged, but
-  numerical statistics use the original pixels.
-
-- Results are satellite-derived ML estimates rather than
-  surveyed ground truth.
-
-- The system is intended for area-level patterns. It
-  should not claim reliable detection of individual
-  houses, individual trees, tiny roads, exact
-  property-level change, or causes of change.
+Results are satellite-derived estimates rather than
+surveyed ground truth. Target dates represent composite
+centers rather than exact satellite acquisition dates.
 """
     )
-
-
-st.markdown(
-    (
-        '<div class="sq-footer-note">'
-        "SETQUERY AI · Satellite change detection "
-        "and grounded analysis · "
-        "Sentinel-2 + Dynamic World"
-        "</div>"
-    ),
-    unsafe_allow_html=True,
-)
