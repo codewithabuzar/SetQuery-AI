@@ -1187,8 +1187,8 @@ if mode == "modern_ml":
         "Measurements",
         "Land-cover comparison",
         (
-            "Measurements apply only to "
-            "high-confidence comparable pixels."
+            "Measurements apply only to pixels that passed "
+            "the temporal-consensus requirements in both periods."
         ),
     )
 
