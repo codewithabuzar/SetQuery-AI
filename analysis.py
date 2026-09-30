@@ -18,11 +18,13 @@ MIN_DATE_SEPARATION_DAYS = 90
 MIN_RADIUS_KM = 1
 MAX_RADIUS_KM = 20
 
+# Dynamic World temporal-consensus methodology.
 DEFAULT_CONFIDENCE_THRESHOLD = 0.60
 
-# This does not make a scientific claim about data quality.
-# It is simply used to warn that a composite has relatively
-# few source observations.
+MIN_CONFIDENT_OBSERVATIONS = 2
+MIN_CONFIDENCE_FREQUENCY = 0.50
+MIN_TEMPORAL_CONSENSUS = 0.60
+
 LOW_OBSERVATION_WARNING_COUNT = 3
 
 PROBABILITY_BANDS = [
@@ -42,7 +44,9 @@ PROBABILITY_BANDS = [
 # EARTH ENGINE INITIALIZATION
 # ==========================================================
 
-ee.Initialize(project=PROJECT_ID)
+ee.Initialize(
+    project=PROJECT_ID
+)
 
 
 # ==========================================================
@@ -58,18 +62,27 @@ class AnalysisDataError(RuntimeError):
 
 
 # ==========================================================
-# VALIDATION / METADATA HELPERS
+# VALIDATION HELPERS
 # ==========================================================
 
-def _parse_date(value, field_name):
+def _parse_date(
+    value,
+    field_name,
+):
     """
-    Convert a date/date-string into a Python date.
+    Convert a date or YYYY-MM-DD string to Python date.
     """
 
-    if isinstance(value, datetime):
+    if isinstance(
+        value,
+        datetime,
+    ):
         return value.date()
 
-    if isinstance(value, date):
+    if isinstance(
+        value,
+        date,
+    ):
         return value
 
     try:
@@ -77,57 +90,91 @@ def _parse_date(value, field_name):
             str(value),
             "%Y-%m-%d",
         ).date()
-    except (TypeError, ValueError) as error:
+
+    except (
+        TypeError,
+        ValueError,
+    ) as error:
+
         raise AnalysisValidationError(
             f"{field_name} must use YYYY-MM-DD format."
         ) from error
 
 
-def _validate_coordinates(latitude, longitude):
+def _validate_coordinates(
+    latitude,
+    longitude,
+):
     """
-    Validate latitude and longitude values.
+    Validate latitude and longitude.
     """
 
     try:
-        latitude = float(latitude)
-        longitude = float(longitude)
-    except (TypeError, ValueError) as error:
+        latitude = float(
+            latitude
+        )
+
+        longitude = float(
+            longitude
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ) as error:
+
         raise AnalysisValidationError(
             "Latitude and longitude must be numeric."
         ) from error
 
     if not -90 <= latitude <= 90:
+
         raise AnalysisValidationError(
             "Latitude must be between -90 and 90 degrees."
         )
 
     if not -180 <= longitude <= 180:
+
         raise AnalysisValidationError(
             "Longitude must be between -180 and 180 degrees."
         )
 
-    return latitude, longitude
+    return (
+        latitude,
+        longitude,
+    )
 
 
-def _validate_radius(radius_km):
+def _validate_radius(
+    radius_km,
+):
     """
-    Validate the application analysis radius.
+    Validate application analysis radius.
     """
 
     try:
-        radius_km = float(radius_km)
-    except (TypeError, ValueError) as error:
+        radius_km = float(
+            radius_km
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ) as error:
+
         raise AnalysisValidationError(
             "Analysis radius must be numeric."
         ) from error
 
     if radius_km < MIN_RADIUS_KM:
+
         raise AnalysisValidationError(
             f"Analysis radius must be at least "
             f"{MIN_RADIUS_KM} km."
         )
 
     if radius_km > MAX_RADIUS_KM:
+
         raise AnalysisValidationError(
             f"Analysis radius cannot exceed "
             f"{MAX_RADIUS_KM} km."
@@ -136,21 +183,34 @@ def _validate_radius(radius_km):
     return radius_km
 
 
-def _validate_confidence_threshold(confidence_threshold):
+def _validate_confidence_threshold(
+    confidence_threshold,
+):
     """
-    Validate Dynamic World confidence threshold.
+    Validate per-observation Dynamic World probability
+    threshold.
     """
 
     try:
         confidence_threshold = float(
             confidence_threshold
         )
-    except (TypeError, ValueError) as error:
+
+    except (
+        TypeError,
+        ValueError,
+    ) as error:
+
         raise AnalysisValidationError(
             "Confidence threshold must be numeric."
         ) from error
 
-    if not 0 < confidence_threshold <= 1:
+    if not (
+        0
+        < confidence_threshold
+        <= 1
+    ):
+
         raise AnalysisValidationError(
             "Confidence threshold must be greater "
             "than 0 and no greater than 1."
@@ -159,40 +219,49 @@ def _validate_confidence_threshold(confidence_threshold):
     return confidence_threshold
 
 
-def _build_window_metadata(target_date):
+def _build_window_metadata(
+    target_date,
+):
     """
     Build requested and effective composite-window metadata.
 
-    Earth Engine filterDate uses:
-        start inclusive
-        end exclusive
-
-    If the requested window extends beyond today, the
-    effective end is truncated to tomorrow so today's
-    available imagery can still be included.
+    Earth Engine filterDate uses an inclusive start and
+    exclusive end.
     """
 
     today = date.today()
 
     requested_start = (
         target_date
-        - timedelta(days=COMPOSITE_WINDOW_DAYS)
+        - timedelta(
+            days=COMPOSITE_WINDOW_DAYS
+        )
     )
 
     requested_end_exclusive = (
         target_date
-        + timedelta(days=COMPOSITE_WINDOW_DAYS)
+        + timedelta(
+            days=COMPOSITE_WINDOW_DAYS
+        )
     )
 
-    tomorrow = today + timedelta(days=1)
+    tomorrow = (
+        today
+        + timedelta(
+            days=1
+        )
+    )
 
-    effective_start = requested_start
+    effective_start = (
+        requested_start
+    )
+
     effective_end_exclusive = min(
         requested_end_exclusive,
         tomorrow,
     )
 
-    truncated = (
+    future_truncated = (
         effective_end_exclusive
         < requested_end_exclusive
     )
@@ -214,7 +283,7 @@ def _build_window_metadata(target_date):
             effective_end_exclusive.isoformat(),
 
         "future_truncated":
-            truncated,
+            future_truncated,
     }
 
 
@@ -227,18 +296,21 @@ def validate_analysis_request(
     confidence_threshold=DEFAULT_CONFIDENCE_THRESHOLD,
 ):
     """
-    Validate an analysis request before Earth Engine work.
-
-    Returns normalized values and composite metadata.
+    Validate a Modern ML analysis request.
     """
 
-    latitude, longitude = _validate_coordinates(
+    (
+        latitude,
+        longitude,
+    ) = _validate_coordinates(
         latitude,
         longitude,
     )
 
-    radius_km = _validate_radius(
-        radius_km
+    radius_km = (
+        _validate_radius(
+            radius_km
+        )
     )
 
     confidence_threshold = (
@@ -260,25 +332,33 @@ def validate_analysis_request(
     today = date.today()
 
     if before >= after:
+
         raise AnalysisValidationError(
             "Before date must be earlier than after date."
         )
 
     if before > today:
+
         raise AnalysisValidationError(
             "Before date cannot be in the future."
         )
 
     if after > today:
+
         raise AnalysisValidationError(
             "After date cannot be in the future."
         )
 
     separation_days = (
-        after - before
+        after
+        - before
     ).days
 
-    if separation_days < MIN_DATE_SEPARATION_DAYS:
+    if (
+        separation_days
+        < MIN_DATE_SEPARATION_DAYS
+    ):
+
         raise AnalysisValidationError(
             "Before and after target dates must be at "
             f"least {MIN_DATE_SEPARATION_DAYS} days apart. "
@@ -286,28 +366,38 @@ def validate_analysis_request(
             f"±{COMPOSITE_WINDOW_DAYS}-day composite windows."
         )
 
-    before_window = _build_window_metadata(
-        before
+    before_window = (
+        _build_window_metadata(
+            before
+        )
     )
 
-    after_window = _build_window_metadata(
-        after
+    after_window = (
+        _build_window_metadata(
+            after
+        )
     )
 
     warnings = []
 
-    if before_window["future_truncated"]:
+    if before_window[
+        "future_truncated"
+    ]:
+
         warnings.append(
             "The BEFORE composite window extends beyond "
-            "today and was truncated to currently available "
-            "dates."
+            "today and was truncated to currently "
+            "available dates."
         )
 
-    if after_window["future_truncated"]:
+    if after_window[
+        "future_truncated"
+    ]:
+
         warnings.append(
             "The AFTER composite window extends beyond "
-            "today and was truncated to currently available "
-            "dates."
+            "today and was truncated to currently "
+            "available dates."
         )
 
     return {
@@ -343,38 +433,53 @@ def validate_analysis_request(
     }
 
 
-def _create_area(latitude, longitude, radius_km):
+# ==========================================================
+# COMMON EARTH ENGINE HELPERS
+# ==========================================================
+
+def _create_area(
+    latitude,
+    longitude,
+    radius_km,
+):
     """
-    Create the Earth Engine study geometry.
+    Create study geometry.
     """
 
-    location = ee.Geometry.Point([
-        longitude,
-        latitude,
-    ])
+    point = ee.Geometry.Point(
+        [
+            longitude,
+            latitude,
+        ]
+    )
 
-    return location.buffer(
+    return point.buffer(
         radius_km * 1000
     )
 
 
-def _get_collection_count(collection, label):
+def _get_collection_count(
+    collection,
+    label,
+):
     """
-    Retrieve and validate collection observation count.
+    Retrieve collection count.
     """
 
     try:
-        count = int(
-            collection.size().getInfo()
+        return int(
+            collection
+            .size()
+            .getInfo()
         )
+
     except Exception as error:
+
         raise AnalysisDataError(
             f"Could not check {label} observations. "
-            "Earth Engine or the network may be temporarily "
-            "unavailable."
+            "Earth Engine or the network may be "
+            "temporarily unavailable."
         ) from error
-
-    return count
 
 
 def _observation_warnings(
@@ -383,7 +488,7 @@ def _observation_warnings(
     dataset_name,
 ):
     """
-    Build conservative warnings for small collections.
+    Generate warnings for unusually small collections.
     """
 
     warnings = []
@@ -392,96 +497,361 @@ def _observation_warnings(
         before_count
         < LOW_OBSERVATION_WARNING_COUNT
     ):
+
         warnings.append(
             f"Only {before_count} {dataset_name} "
             "observation(s) were available for the "
-            "BEFORE composite."
+            "BEFORE period."
         )
 
     if (
         after_count
         < LOW_OBSERVATION_WARNING_COUNT
     ):
+
         warnings.append(
             f"Only {after_count} {dataset_name} "
             "observation(s) were available for the "
-            "AFTER composite."
+            "AFTER period."
         )
 
     return warnings
 
 
-def _build_dynamic_world_composite(
+# ==========================================================
+# DYNAMIC WORLD COLLECTION
+# ==========================================================
+
+def _build_dynamic_world_collection(
     area,
     window,
 ):
     """
-    Build a Dynamic World probability composite.
+    Build Dynamic World collection for one period.
     """
 
-    collection = (
+    return (
         ee.ImageCollection(
             DYNAMIC_WORLD_COLLECTION
         )
-        .filterBounds(area)
+        .filterBounds(
+            area
+        )
         .filterDate(
-            window["effective_start"],
-            window["effective_end_exclusive"],
+            window[
+                "effective_start"
+            ],
+            window[
+                "effective_end_exclusive"
+            ],
         )
     )
 
+
+# ==========================================================
+# TEMPORAL CONSENSUS CLASSIFICATION
+# ==========================================================
+
+def _process_dynamic_world_observation(
+    image,
+    confidence_threshold,
+):
+    """
+    Process one Dynamic World observation.
+
+    available:
+        all probability bands contain data at the pixel.
+
+    confident:
+        maximum class probability meets the configured
+        threshold.
+
+    label:
+        dominant class, retained only for confident
+        observations.
+    """
+
     probabilities = (
-        collection
-        .select(PROBABILITY_BANDS)
-        .mean()
-        .clip(area)
+        image.select(
+            PROBABILITY_BANDS
+        )
+    )
+
+    available = (
+        probabilities
+        .mask()
+        .reduce(
+            ee.Reducer.min()
+        )
+        .rename(
+            "available"
+        )
     )
 
     confidence = (
         probabilities
-        .reduce(ee.Reducer.max())
-        .rename("confidence")
+        .reduce(
+            ee.Reducer.max()
+        )
+        .rename(
+            "confidence"
+        )
     )
 
-    land = (
+    label = (
         probabilities
         .toArray()
         .arrayArgmax()
         .arrayGet([0])
-        .rename("land")
+        .rename(
+            "label"
+        )
+    )
+
+    confident = (
+        confidence
+        .gte(
+            confidence_threshold
+        )
+        .And(
+            available
+        )
+        .rename(
+            "confident"
+        )
+    )
+
+    confident_label = (
+        label
+        .updateMask(
+            confident
+        )
+        .rename(
+            "label"
+        )
+    )
+
+    return ee.Image.cat(
+        [
+            confident_label,
+
+            confident
+            .unmask(0)
+            .rename(
+                "confident"
+            ),
+
+            available
+            .unmask(0)
+            .rename(
+                "available"
+            ),
+        ]
+    )
+
+
+def _build_temporal_consensus(
+    collection,
+    confidence_threshold,
+):
+    """
+    Build a Dynamic World temporal-consensus classification.
+
+    Pixel validity requires:
+
+    - at least MIN_CONFIDENT_OBSERVATIONS confident
+      observations;
+
+    - at least MIN_CONFIDENCE_FREQUENCY of actually
+      available observations are confident;
+
+    - at least MIN_TEMPORAL_CONSENSUS of confident
+      classifications agree with the modal class.
+    """
+
+    def process(
+        image,
+    ):
+        return (
+            _process_dynamic_world_observation(
+                image,
+                confidence_threshold,
+            )
+        )
+
+    processed = (
+        collection.map(
+            process
+        )
+    )
+
+    available_count = (
+        processed
+        .select(
+            "available"
+        )
+        .sum()
+        .rename(
+            "available_count"
+        )
+    )
+
+    confident_count = (
+        processed
+        .select(
+            "confident"
+        )
+        .sum()
+        .rename(
+            "confident_count"
+        )
+    )
+
+    mode_label = (
+        processed
+        .select(
+            "label"
+        )
+        .reduce(
+            ee.Reducer.mode()
+        )
+        .rename(
+            "land"
+        )
+    )
+
+    def agreement(
+        image,
+    ):
+
+        return (
+            image
+            .select(
+                "label"
+            )
+            .eq(
+                mode_label
+            )
+            .unmask(0)
+            .rename(
+                "agreement"
+            )
+        )
+
+    agreement_count = (
+        processed
+        .map(
+            agreement
+        )
+        .sum()
+        .rename(
+            "agreement_count"
+        )
+    )
+
+    confidence_frequency = (
+        confident_count
+        .divide(
+            available_count.max(1)
+        )
+        .rename(
+            "confidence_frequency"
+        )
+    )
+
+    consensus_fraction = (
+        agreement_count
+        .divide(
+            confident_count.max(1)
+        )
+        .rename(
+            "consensus_fraction"
+        )
+    )
+
+    valid = (
+        available_count
+        .gte(
+            MIN_CONFIDENT_OBSERVATIONS
+        )
+        .And(
+            confident_count
+            .gte(
+                MIN_CONFIDENT_OBSERVATIONS
+            )
+        )
+        .And(
+            confidence_frequency
+            .gte(
+                MIN_CONFIDENCE_FREQUENCY
+            )
+        )
+        .And(
+            consensus_fraction
+            .gte(
+                MIN_TEMPORAL_CONSENSUS
+            )
+        )
+        .rename(
+            "valid"
+        )
     )
 
     return {
-        "collection":
-            collection,
-
-        "probabilities":
-            probabilities,
-
-        "confidence":
-            confidence,
-
         "land":
-            land,
+            mode_label,
+
+        "valid":
+            valid,
+
+        "available_count":
+            available_count,
+
+        "confident_count":
+            confident_count,
+
+        "confidence_frequency":
+            confidence_frequency,
+
+        "consensus_fraction":
+            consensus_fraction,
     }
 
 
-def _mask_sentinel_clouds(image):
+# ==========================================================
+# SENTINEL-2 HELPERS
+# ==========================================================
+
+def _mask_sentinel_clouds(
+    image,
+):
     """
-    Mask selected Sentinel-2 SCL cloud/snow classes.
+    Mask selected Sentinel-2 SCL classes.
     """
 
-    scl = image.select("SCL")
+    scl = image.select(
+        "SCL"
+    )
 
     mask = (
         scl.neq(3)
-        .And(scl.neq(8))
-        .And(scl.neq(9))
-        .And(scl.neq(10))
-        .And(scl.neq(11))
+        .And(
+            scl.neq(8)
+        )
+        .And(
+            scl.neq(9)
+        )
+        .And(
+            scl.neq(10)
+        )
+        .And(
+            scl.neq(11)
+        )
     )
 
-    return image.updateMask(mask)
+    return image.updateMask(
+        mask
+    )
 
 
 def _build_sentinel_collection(
@@ -489,17 +859,23 @@ def _build_sentinel_collection(
     window,
 ):
     """
-    Build the filtered Sentinel-2 collection.
+    Build cloud-masked Sentinel-2 SR collection.
     """
 
     return (
         ee.ImageCollection(
             SENTINEL_COLLECTION
         )
-        .filterBounds(area)
+        .filterBounds(
+            area
+        )
         .filterDate(
-            window["effective_start"],
-            window["effective_end_exclusive"],
+            window[
+                "effective_start"
+            ],
+            window[
+                "effective_end_exclusive"
+            ],
         )
         .filter(
             ee.Filter.lt(
@@ -507,12 +883,14 @@ def _build_sentinel_collection(
                 90,
             )
         )
-        .map(_mask_sentinel_clouds)
+        .map(
+            _mask_sentinel_clouds
+        )
     )
 
 
 # ==========================================================
-# 1. LAND-COVER CHANGE ANALYSIS
+# LAND-COVER CHANGE ANALYSIS
 # ==========================================================
 
 def analyze_area(
@@ -523,56 +901,381 @@ def analyze_area(
     radius_km=10,
     confidence_threshold=DEFAULT_CONFIDENCE_THRESHOLD,
 ):
+    """
+    Run Modern ML Dynamic World temporal-consensus analysis.
+    """
 
-    request = validate_analysis_request(
-        latitude=latitude,
-        longitude=longitude,
-        before_date=before_date,
-        after_date=after_date,
-        radius_km=radius_km,
-        confidence_threshold=confidence_threshold,
+    request = (
+        validate_analysis_request(
+            latitude=latitude,
+            longitude=longitude,
+            before_date=before_date,
+            after_date=after_date,
+            radius_km=radius_km,
+            confidence_threshold=(
+                confidence_threshold
+            ),
+        )
     )
 
     area = _create_area(
-        request["latitude"],
-        request["longitude"],
-        request["radius_km"],
+        request[
+            "latitude"
+        ],
+        request[
+            "longitude"
+        ],
+        request[
+            "radius_km"
+        ],
     )
 
-    before = _build_dynamic_world_composite(
-        area,
-        request["before_window"],
+    before_collection = (
+        _build_dynamic_world_collection(
+            area,
+            request[
+                "before_window"
+            ],
+        )
     )
 
-    after = _build_dynamic_world_composite(
-        area,
-        request["after_window"],
+    after_collection = (
+        _build_dynamic_world_collection(
+            area,
+            request[
+                "after_window"
+            ],
+        )
     )
 
-    before_count = _get_collection_count(
-        before["collection"],
-        "Dynamic World BEFORE",
+    before_count = (
+        _get_collection_count(
+            before_collection,
+            "Dynamic World BEFORE",
+        )
     )
 
-    after_count = _get_collection_count(
-        after["collection"],
-        "Dynamic World AFTER",
+    after_count = (
+        _get_collection_count(
+            after_collection,
+            "Dynamic World AFTER",
+        )
     )
 
     if before_count == 0:
+
         raise AnalysisDataError(
             "No Dynamic World observations were found "
             "for the BEFORE composite window."
         )
 
     if after_count == 0:
+
         raise AnalysisDataError(
             "No Dynamic World observations were found "
             "for the AFTER composite window."
         )
 
+    before = (
+        _build_temporal_consensus(
+            before_collection,
+            request[
+                "confidence_threshold"
+            ],
+        )
+    )
+
+    after = (
+        _build_temporal_consensus(
+            after_collection,
+            request[
+                "confidence_threshold"
+            ],
+        )
+    )
+
+    comparable = (
+        before[
+            "valid"
+        ]
+        .And(
+            after[
+                "valid"
+            ]
+        )
+    )
+
+    before_land = (
+        before[
+            "land"
+        ]
+        .updateMask(
+            comparable
+        )
+    )
+
+    after_land = (
+        after[
+            "land"
+        ]
+        .updateMask(
+            comparable
+        )
+    )
+
+    # ------------------------------------------------------
+    # GROUPED CLASSES
+    # ------------------------------------------------------
+
+    before_vegetation = (
+        before_land
+        .gte(1)
+        .And(
+            before_land.lte(5)
+        )
+    )
+
+    after_vegetation = (
+        after_land
+        .gte(1)
+        .And(
+            after_land.lte(5)
+        )
+    )
+
+    before_water = (
+        before_land.eq(0)
+    )
+
+    after_water = (
+        after_land.eq(0)
+    )
+
+    before_built = (
+        before_land.eq(6)
+    )
+
+    after_built = (
+        after_land.eq(6)
+    )
+
+    before_bare = (
+        before_land.eq(7)
+    )
+
+    after_bare = (
+        after_land.eq(7)
+    )
+
+    # ------------------------------------------------------
+    # STATISTICS IMAGE
+    # ------------------------------------------------------
+
+    km2 = (
+        ee.Image.pixelArea()
+        .divide(1e6)
+    )
+
+    stats_image = ee.Image.cat(
+        [
+            km2
+            .updateMask(
+                comparable
+            )
+            .rename(
+                "comparable"
+            ),
+
+            km2
+            .updateMask(
+                before_vegetation
+            )
+            .rename(
+                "before_vegetation"
+            ),
+
+            km2
+            .updateMask(
+                after_vegetation
+            )
+            .rename(
+                "after_vegetation"
+            ),
+
+            km2
+            .updateMask(
+                before_water
+            )
+            .rename(
+                "before_water"
+            ),
+
+            km2
+            .updateMask(
+                after_water
+            )
+            .rename(
+                "after_water"
+            ),
+
+            km2
+            .updateMask(
+                before_built
+            )
+            .rename(
+                "before_built"
+            ),
+
+            km2
+            .updateMask(
+                after_built
+            )
+            .rename(
+                "after_built"
+            ),
+
+            km2
+            .updateMask(
+                before_bare
+            )
+            .rename(
+                "before_bare"
+            ),
+
+            km2
+            .updateMask(
+                after_bare
+            )
+            .rename(
+                "after_bare"
+            ),
+
+            km2
+            .updateMask(
+                before_vegetation
+                .And(
+                    after_built
+                )
+            )
+            .rename(
+                "vegetation_to_built"
+            ),
+
+            km2
+            .updateMask(
+                before_built
+                .And(
+                    after_vegetation
+                )
+            )
+            .rename(
+                "built_to_vegetation"
+            ),
+
+            km2
+            .updateMask(
+                before_bare
+                .And(
+                    after_built
+                )
+            )
+            .rename(
+                "bare_to_built"
+            ),
+
+            km2
+            .updateMask(
+                before_water
+                .And(
+                    after_land.neq(0)
+                )
+            )
+            .rename(
+                "water_to_nonwater"
+            ),
+
+            km2
+            .updateMask(
+                before_land
+                .neq(0)
+                .And(
+                    after_water
+                )
+            )
+            .rename(
+                "nonwater_to_water"
+            ),
+        ]
+    )
+
+    try:
+
+        stats = (
+            stats_image
+            .reduceRegion(
+                reducer=(
+                    ee.Reducer.sum()
+                ),
+                geometry=area,
+                scale=10,
+                maxPixels=1e9,
+                tileScale=4,
+            )
+            .getInfo()
+        )
+
+        total_area_km2 = float(
+            area
+            .area()
+            .divide(1e6)
+            .getInfo()
+        )
+
+    except Exception as error:
+
+        raise AnalysisDataError(
+            "Earth Engine could not calculate "
+            "land-cover statistics."
+        ) from error
+
+    def stat_value(
+        name,
+    ):
+
+        value = stats.get(
+            name
+        )
+
+        if value is None:
+
+            return 0.0
+
+        return float(
+            value
+        )
+
+    comparable_area_km2 = (
+        stat_value(
+            "comparable"
+        )
+    )
+
+    if total_area_km2 > 0:
+
+        coverage_percent = (
+            comparable_area_km2
+            / total_area_km2
+            * 100
+        )
+
+    else:
+
+        coverage_percent = 0.0
+
     warnings = list(
-        request["warnings"]
+        request[
+            "warnings"
+        ]
     )
 
     warnings.extend(
@@ -583,201 +1286,21 @@ def analyze_area(
         )
     )
 
-    valid = (
-        before["confidence"]
-        .gte(
-            request[
-                "confidence_threshold"
-            ]
-        )
-        .And(
-            after["confidence"]
-            .gte(
-                request[
-                    "confidence_threshold"
-                ]
-            )
-        )
-    )
-
-    before_land = (
-        before["land"]
-        .updateMask(valid)
-    )
-
-    after_land = (
-        after["land"]
-        .updateMask(valid)
-    )
-
-    # ------------------------------------------------------
-    # Land-cover groups
-    # ------------------------------------------------------
-
-    before_vegetation = (
-        before_land
-        .gte(1)
-        .And(before_land.lte(5))
-    )
-
-    after_vegetation = (
-        after_land
-        .gte(1)
-        .And(after_land.lte(5))
-    )
-
-    before_water = before_land.eq(0)
-    after_water = after_land.eq(0)
-
-    before_built = before_land.eq(6)
-    after_built = after_land.eq(6)
-
-    before_bare = before_land.eq(7)
-    after_bare = after_land.eq(7)
-
-    # ------------------------------------------------------
-    # Statistics image
-    # ------------------------------------------------------
-
-    km2 = (
-        ee.Image.pixelArea()
-        .divide(1e6)
-    )
-
-    stats_image = ee.Image.cat([
-
-        km2
-        .updateMask(valid)
-        .rename("comparable"),
-
-        km2
-        .updateMask(before_vegetation)
-        .rename("before_vegetation"),
-
-        km2
-        .updateMask(after_vegetation)
-        .rename("after_vegetation"),
-
-        km2
-        .updateMask(before_water)
-        .rename("before_water"),
-
-        km2
-        .updateMask(after_water)
-        .rename("after_water"),
-
-        km2
-        .updateMask(before_built)
-        .rename("before_built"),
-
-        km2
-        .updateMask(after_built)
-        .rename("after_built"),
-
-        km2
-        .updateMask(before_bare)
-        .rename("before_bare"),
-
-        km2
-        .updateMask(after_bare)
-        .rename("after_bare"),
-
-        km2
-        .updateMask(
-            before_vegetation
-            .And(after_built)
-        )
-        .rename("vegetation_to_built"),
-
-        km2
-        .updateMask(
-            before_built
-            .And(after_vegetation)
-        )
-        .rename("built_to_vegetation"),
-
-        km2
-        .updateMask(
-            before_bare
-            .And(after_built)
-        )
-        .rename("bare_to_built"),
-
-        km2
-        .updateMask(
-            before_water
-            .And(after_land.neq(0))
-        )
-        .rename("water_to_nonwater"),
-
-        km2
-        .updateMask(
-            before_land
-            .neq(0)
-            .And(after_water)
-        )
-        .rename("nonwater_to_water"),
-    ])
-
-    try:
-        stats = (
-            stats_image
-            .reduceRegion(
-                reducer=ee.Reducer.sum(),
-                geometry=area,
-                scale=10,
-                maxPixels=1e9,
-                tileScale=4,
-            )
-            .getInfo()
-        )
-
-        total_area_km2 = float(
-            area.area()
-            .divide(1e6)
-            .getInfo()
-        )
-
-    except Exception as error:
-        raise AnalysisDataError(
-            "Earth Engine could not calculate the "
-            "land-cover statistics. Please try again."
-        ) from error
-
-    def stat_value(name):
-        value = stats.get(name)
-
-        if value is None:
-            return 0.0
-
-        return float(value)
-
-    comparable_area_km2 = stat_value(
-        "comparable"
-    )
-
-    if total_area_km2 > 0:
-        coverage_percent = (
-            comparable_area_km2
-            / total_area_km2
-            * 100
-        )
-    else:
-        coverage_percent = 0.0
-
     if coverage_percent < 20:
+
         warnings.append(
             "Comparable coverage is very low and is "
             "insufficient for broad area-level conclusions."
         )
 
     elif coverage_percent < 40:
+
         warnings.append(
             "Comparable coverage is limited. Area-wide "
             "conclusions should be made cautiously."
         )
 
-    result = {
+    return {
         "before_observations":
             before_count,
 
@@ -794,66 +1317,113 @@ def analyze_area(
             coverage_percent,
 
         "before_vegetation_km2":
-            stat_value("before_vegetation"),
+            stat_value(
+                "before_vegetation"
+            ),
 
         "after_vegetation_km2":
-            stat_value("after_vegetation"),
+            stat_value(
+                "after_vegetation"
+            ),
 
         "before_built_km2":
-            stat_value("before_built"),
+            stat_value(
+                "before_built"
+            ),
 
         "after_built_km2":
-            stat_value("after_built"),
+            stat_value(
+                "after_built"
+            ),
 
         "before_water_km2":
-            stat_value("before_water"),
+            stat_value(
+                "before_water"
+            ),
 
         "after_water_km2":
-            stat_value("after_water"),
+            stat_value(
+                "after_water"
+            ),
 
         "before_bare_km2":
-            stat_value("before_bare"),
+            stat_value(
+                "before_bare"
+            ),
 
         "after_bare_km2":
-            stat_value("after_bare"),
+            stat_value(
+                "after_bare"
+            ),
 
         "vegetation_to_built_km2":
-            stat_value("vegetation_to_built"),
+            stat_value(
+                "vegetation_to_built"
+            ),
 
         "built_to_vegetation_km2":
-            stat_value("built_to_vegetation"),
+            stat_value(
+                "built_to_vegetation"
+            ),
 
         "bare_to_built_km2":
-            stat_value("bare_to_built"),
+            stat_value(
+                "bare_to_built"
+            ),
 
         "water_to_nonwater_km2":
-            stat_value("water_to_nonwater"),
+            stat_value(
+                "water_to_nonwater"
+            ),
 
         "nonwater_to_water_km2":
-            stat_value("nonwater_to_water"),
+            stat_value(
+                "nonwater_to_water"
+            ),
 
-        # New metadata. Existing result keys remain unchanged.
+        # --------------------------------------------------
+        # METHODOLOGY METADATA
+        # --------------------------------------------------
+
+        "classification_method":
+            "dynamic_world_temporal_consensus",
+
         "confidence_threshold":
-            request["confidence_threshold"],
+            request[
+                "confidence_threshold"
+            ],
+
+        "min_confident_observations":
+            MIN_CONFIDENT_OBSERVATIONS,
+
+        "min_confidence_frequency":
+            MIN_CONFIDENCE_FREQUENCY,
+
+        "min_temporal_consensus":
+            MIN_TEMPORAL_CONSENSUS,
 
         "date_separation_days":
-            request["date_separation_days"],
+            request[
+                "date_separation_days"
+            ],
 
         "before_window":
-            request["before_window"],
+            request[
+                "before_window"
+            ],
 
         "after_window":
-            request["after_window"],
+            request[
+                "after_window"
+            ],
 
         "warnings":
             warnings,
     }
 
-    return result
-
 
 # ==========================================================
-# 2. SENTINEL-2 BEFORE / AFTER IMAGERY
+# SENTINEL-2 BEFORE / AFTER IMAGERY
 # ==========================================================
 
 def get_satellite_images(
@@ -863,60 +1433,155 @@ def get_satellite_images(
     after_date,
     radius_km=10,
 ):
+    """
+    Generate cloud-masked Sentinel-2 true-color composites.
+    """
 
-    request = validate_analysis_request(
-        latitude=latitude,
-        longitude=longitude,
-        before_date=before_date,
-        after_date=after_date,
-        radius_km=radius_km,
-        confidence_threshold=DEFAULT_CONFIDENCE_THRESHOLD,
+    request = (
+        validate_analysis_request(
+            latitude=latitude,
+            longitude=longitude,
+            before_date=before_date,
+            after_date=after_date,
+            radius_km=radius_km,
+            confidence_threshold=(
+                DEFAULT_CONFIDENCE_THRESHOLD
+            ),
+        )
     )
 
     area = _create_area(
-        request["latitude"],
-        request["longitude"],
-        request["radius_km"],
+        request[
+            "latitude"
+        ],
+        request[
+            "longitude"
+        ],
+        request[
+            "radius_km"
+        ],
     )
 
     before_collection = (
         _build_sentinel_collection(
             area,
-            request["before_window"],
+            request[
+                "before_window"
+            ],
         )
     )
 
     after_collection = (
         _build_sentinel_collection(
             area,
-            request["after_window"],
+            request[
+                "after_window"
+            ],
         )
     )
 
-    before_count = _get_collection_count(
-        before_collection,
-        "Sentinel-2 BEFORE",
+    before_count = (
+        _get_collection_count(
+            before_collection,
+            "Sentinel-2 BEFORE",
+        )
     )
 
-    after_count = _get_collection_count(
-        after_collection,
-        "Sentinel-2 AFTER",
+    after_count = (
+        _get_collection_count(
+            after_collection,
+            "Sentinel-2 AFTER",
+        )
     )
 
     if before_count == 0:
+
         raise AnalysisDataError(
             "No usable Sentinel-2 observations were found "
             "for the BEFORE composite window."
         )
 
     if after_count == 0:
+
         raise AnalysisDataError(
             "No usable Sentinel-2 observations were found "
             "for the AFTER composite window."
         )
 
+    before_image = (
+        before_collection
+        .median()
+        .clip(
+            area
+        )
+    )
+
+    after_image = (
+        after_collection
+        .median()
+        .clip(
+            area
+        )
+    )
+
+    rgb_vis = {
+        "bands": [
+            "B4",
+            "B3",
+            "B2",
+        ],
+        "min":
+            0,
+        "max":
+            3000,
+        "gamma":
+            1.1,
+    }
+
+    thumbnail_params = {
+        "region":
+            area,
+
+        "dimensions":
+            700,
+
+        "format":
+            "png",
+    }
+
+    try:
+
+        before_url = (
+            before_image
+            .visualize(
+                **rgb_vis
+            )
+            .getThumbURL(
+                thumbnail_params
+            )
+        )
+
+        after_url = (
+            after_image
+            .visualize(
+                **rgb_vis
+            )
+            .getThumbURL(
+                thumbnail_params
+            )
+        )
+
+    except Exception as error:
+
+        raise AnalysisDataError(
+            "Earth Engine could not generate "
+            "Sentinel-2 preview images."
+        ) from error
+
     warnings = list(
-        request["warnings"]
+        request[
+            "warnings"
+        ]
     )
 
     warnings.extend(
@@ -926,66 +1591,6 @@ def get_satellite_images(
             "Sentinel-2",
         )
     )
-
-    before_image = (
-        before_collection
-        .median()
-        .clip(area)
-    )
-
-    after_image = (
-        after_collection
-        .median()
-        .clip(area)
-    )
-
-    rgb_vis = {
-        "bands": [
-            "B4",
-            "B3",
-            "B2",
-        ],
-        "min": 0,
-        "max": 3000,
-        "gamma": 1.1,
-    }
-
-    before_rgb = (
-        before_image
-        .visualize(**rgb_vis)
-    )
-
-    after_rgb = (
-        after_image
-        .visualize(**rgb_vis)
-    )
-
-    thumbnail_params = {
-        "region": area,
-        "dimensions": 700,
-        "format": "png",
-    }
-
-    try:
-        before_url = (
-            before_rgb
-            .getThumbURL(
-                thumbnail_params
-            )
-        )
-
-        after_url = (
-            after_rgb
-            .getThumbURL(
-                thumbnail_params
-            )
-        )
-
-    except Exception as error:
-        raise AnalysisDataError(
-            "Earth Engine could not generate the "
-            "Sentinel-2 preview images."
-        ) from error
 
     return {
         "before_url":
@@ -1001,10 +1606,14 @@ def get_satellite_images(
             after_count,
 
         "before_window":
-            request["before_window"],
+            request[
+                "before_window"
+            ],
 
         "after_window":
-            request["after_window"],
+            request[
+                "after_window"
+            ],
 
         "warnings":
             warnings,
@@ -1012,7 +1621,7 @@ def get_satellite_images(
 
 
 # ==========================================================
-# 3. HIGH-CONFIDENCE CHANGE MAP
+# HIGH-CONFIDENCE TEMPORAL-CONSENSUS CHANGE MAP
 # ==========================================================
 
 def get_change_map(
@@ -1023,125 +1632,199 @@ def get_change_map(
     radius_km=10,
     confidence_threshold=DEFAULT_CONFIDENCE_THRESHOLD,
 ):
+    """
+    Generate a transition visualization using the same
+    temporal-consensus classification as analyze_area().
+    """
 
-    request = validate_analysis_request(
-        latitude=latitude,
-        longitude=longitude,
-        before_date=before_date,
-        after_date=after_date,
-        radius_km=radius_km,
-        confidence_threshold=confidence_threshold,
+    request = (
+        validate_analysis_request(
+            latitude=latitude,
+            longitude=longitude,
+            before_date=before_date,
+            after_date=after_date,
+            radius_km=radius_km,
+            confidence_threshold=(
+                confidence_threshold
+            ),
+        )
     )
 
     area = _create_area(
-        request["latitude"],
-        request["longitude"],
-        request["radius_km"],
+        request[
+            "latitude"
+        ],
+        request[
+            "longitude"
+        ],
+        request[
+            "radius_km"
+        ],
     )
 
-    before = _build_dynamic_world_composite(
-        area,
-        request["before_window"],
+    before_collection = (
+        _build_dynamic_world_collection(
+            area,
+            request[
+                "before_window"
+            ],
+        )
     )
 
-    after = _build_dynamic_world_composite(
-        area,
-        request["after_window"],
+    after_collection = (
+        _build_dynamic_world_collection(
+            area,
+            request[
+                "after_window"
+            ],
+        )
     )
 
-    before_count = _get_collection_count(
-        before["collection"],
-        "Dynamic World BEFORE change-map",
+    before_count = (
+        _get_collection_count(
+            before_collection,
+            "Dynamic World BEFORE change-map",
+        )
     )
 
-    after_count = _get_collection_count(
-        after["collection"],
-        "Dynamic World AFTER change-map",
+    after_count = (
+        _get_collection_count(
+            after_collection,
+            "Dynamic World AFTER change-map",
+        )
     )
 
     if before_count == 0:
+
         raise AnalysisDataError(
             "No Dynamic World observations were found "
-            "for the BEFORE change-map window."
+            "for the BEFORE change-map period."
         )
 
     if after_count == 0:
+
         raise AnalysisDataError(
             "No Dynamic World observations were found "
-            "for the AFTER change-map window."
+            "for the AFTER change-map period."
         )
 
-    valid = (
-        before["confidence"]
-        .gte(
+    before = (
+        _build_temporal_consensus(
+            before_collection,
             request[
                 "confidence_threshold"
-            ]
+            ],
         )
+    )
+
+    after = (
+        _build_temporal_consensus(
+            after_collection,
+            request[
+                "confidence_threshold"
+            ],
+        )
+    )
+
+    comparable = (
+        before[
+            "valid"
+        ]
         .And(
-            after["confidence"]
-            .gte(
-                request[
-                    "confidence_threshold"
-                ]
-            )
+            after[
+                "valid"
+            ]
         )
     )
 
     before_land = (
-        before["land"]
-        .updateMask(valid)
+        before[
+            "land"
+        ]
+        .updateMask(
+            comparable
+        )
     )
 
     after_land = (
-        after["land"]
-        .updateMask(valid)
+        after[
+            "land"
+        ]
+        .updateMask(
+            comparable
+        )
     )
 
-    before_veg = (
+    before_vegetation = (
         before_land
         .gte(1)
-        .And(before_land.lte(5))
+        .And(
+            before_land.lte(5)
+        )
     )
 
-    after_veg = (
+    after_vegetation = (
         after_land
         .gte(1)
-        .And(after_land.lte(5))
+        .And(
+            after_land.lte(5)
+        )
     )
 
-    before_built = before_land.eq(6)
-    after_built = after_land.eq(6)
+    before_built = (
+        before_land.eq(6)
+    )
 
-    before_bare = before_land.eq(7)
+    after_built = (
+        after_land.eq(6)
+    )
 
-    before_water = before_land.eq(0)
-    after_water = after_land.eq(0)
+    before_bare = (
+        before_land.eq(7)
+    )
+
+    before_water = (
+        before_land.eq(0)
+    )
+
+    after_water = (
+        after_land.eq(0)
+    )
 
     vegetation_to_built = (
-        before_veg
-        .And(after_built)
+        before_vegetation
+        .And(
+            after_built
+        )
     )
 
     built_to_vegetation = (
         before_built
-        .And(after_veg)
+        .And(
+            after_vegetation
+        )
     )
 
     bare_to_built = (
         before_bare
-        .And(after_built)
+        .And(
+            after_built
+        )
     )
 
     nonwater_to_water = (
         before_land
         .neq(0)
-        .And(after_water)
+        .And(
+            after_water
+        )
     )
 
     water_to_nonwater = (
         before_water
-        .And(after_land.neq(0))
+        .And(
+            after_land.neq(0)
+        )
     )
 
     change = (
@@ -1166,11 +1849,15 @@ def get_change_map(
             water_to_nonwater,
             5,
         )
-        .clip(area)
+        .clip(
+            area
+        )
     )
 
-    # Visualization only. Numerical statistics continue
-    # using the original, non-enlarged pixels in analyze_area.
+    # ------------------------------------------------------
+    # VISUAL ENLARGEMENT ONLY
+    # ------------------------------------------------------
+
     display_radius = 2
 
     veg_to_built_display = (
@@ -1242,22 +1929,33 @@ def get_change_map(
         .updateMask(
             display_change.gt(0)
         )
-        .clip(area)
+        .clip(
+            area
+        )
     )
+
+    # ------------------------------------------------------
+    # SENTINEL-2 BACKGROUND
+    # ------------------------------------------------------
 
     sentinel_collection = (
         _build_sentinel_collection(
             area,
-            request["after_window"],
+            request[
+                "after_window"
+            ],
         )
     )
 
-    sentinel_count = _get_collection_count(
-        sentinel_collection,
-        "Sentinel-2 AFTER change-map background",
+    sentinel_count = (
+        _get_collection_count(
+            sentinel_collection,
+            "Sentinel-2 AFTER change-map background",
+        )
     )
 
     if sentinel_count == 0:
+
         raise AnalysisDataError(
             "No usable Sentinel-2 observations were found "
             "for the change-map background."
@@ -1266,7 +1964,9 @@ def get_change_map(
     background = (
         sentinel_collection
         .median()
-        .clip(area)
+        .clip(
+            area
+        )
         .visualize(
             bands=[
                 "B4",
@@ -1277,7 +1977,9 @@ def get_change_map(
             max=3500,
             gamma=1.2,
         )
-        .multiply(0.45)
+        .multiply(
+            0.45
+        )
         .toUint8()
     )
 
@@ -1298,17 +2000,27 @@ def get_change_map(
 
     final_map = (
         background
-        .blend(colored_changes)
-        .clip(area)
+        .blend(
+            colored_changes
+        )
+        .clip(
+            area
+        )
     )
 
     thumbnail_params = {
-        "region": area,
-        "dimensions": 800,
-        "format": "png",
+        "region":
+            area,
+
+        "dimensions":
+            800,
+
+        "format":
+            "png",
     }
 
     try:
+
         change_url = (
             final_map
             .getThumbURL(
@@ -1317,22 +2029,11 @@ def get_change_map(
         )
 
     except Exception as error:
+
         raise AnalysisDataError(
-            "Earth Engine could not generate the "
-            "change-map preview."
+            "Earth Engine could not generate "
+            "the change-map preview."
         ) from error
-
-    warnings = list(
-        request["warnings"]
-    )
-
-    warnings.extend(
-        _observation_warnings(
-            before_count,
-            after_count,
-            "Dynamic World",
-        )
-    )
 
     return {
         "change_url":
@@ -1347,12 +2048,30 @@ def get_change_map(
         "background_sentinel_observations":
             sentinel_count,
 
+        "classification_method":
+            "dynamic_world_temporal_consensus",
+
+        "confidence_threshold":
+            request[
+                "confidence_threshold"
+            ],
+
+        "min_confident_observations":
+            MIN_CONFIDENT_OBSERVATIONS,
+
+        "min_confidence_frequency":
+            MIN_CONFIDENCE_FREQUENCY,
+
+        "min_temporal_consensus":
+            MIN_TEMPORAL_CONSENSUS,
+
         "before_window":
-            request["before_window"],
+            request[
+                "before_window"
+            ],
 
         "after_window":
-            request["after_window"],
-
-        "warnings":
-            warnings,
+            request[
+                "after_window"
+            ],
     }

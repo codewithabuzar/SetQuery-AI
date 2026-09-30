@@ -4,3 +4,4 @@ __pycache__/
 .env
 .streamlit/
 app_backup.py
+analysis_before_consensus.py
