@@ -8,7 +8,11 @@ from analysis import (
     get_change_map,
 )
 
-from report import generate_analysis_summary
+from report import (
+    generate_analysis_summary,
+    get_coverage_interpretation,
+)
+
 from query import answer_query
 from llm import ask_gemini
 
@@ -123,7 +127,6 @@ if st.button(
                     )
                 )
 
-
             if location_result is None:
 
                 st.error(
@@ -133,10 +136,8 @@ if st.button(
 
                 st.stop()
 
-
             latitude = location_result.latitude
             longitude = location_result.longitude
-
 
             # =========================================
             # EARTH ENGINE
@@ -173,13 +174,11 @@ if st.button(
                     confidence_threshold=confidence,
                 )
 
-
             # =========================================
             # SAVE RESULTS
             # =========================================
 
             st.session_state.analysis_data = {
-
                 "location":
                     location_result.address,
 
@@ -208,11 +207,9 @@ if st.button(
                     change_map,
             }
 
-
             st.success(
                 "Analysis completed successfully."
             )
-
 
         except Exception as error:
 
@@ -258,7 +255,6 @@ if data is not None:
     images = data["images"]
     change_map = data["change_map"]
 
-
     # =================================================
     # LOCATION
     # =================================================
@@ -273,27 +269,22 @@ if data is not None:
         location
     )
 
-
     a, b, c = st.columns(3)
-
 
     a.metric(
         "Latitude",
         f"{latitude:.5f}",
     )
 
-
     b.metric(
         "Longitude",
         f"{longitude:.5f}",
     )
 
-
     c.metric(
         "Radius",
         f"{analyzed_radius} km",
     )
-
 
     # =================================================
     # SATELLITE IMAGES
@@ -311,11 +302,9 @@ if data is not None:
         "selected date."
     )
 
-
     before_img, after_img = (
         st.columns(2)
     )
-
 
     with before_img:
 
@@ -333,7 +322,6 @@ if data is not None:
             f"{images['before_sentinel_observations']}"
         )
 
-
     with after_img:
 
         st.markdown(
@@ -349,7 +337,6 @@ if data is not None:
             "Sentinel-2 observations used: "
             f"{images['after_sentinel_observations']}"
         )
-
 
     # =================================================
     # CHANGE MAP
@@ -367,12 +354,10 @@ if data is not None:
         "sufficient confidence in both periods."
     )
 
-
     st.image(
         change_map["change_url"],
         width="stretch",
     )
-
 
     st.markdown(
         """
@@ -386,7 +371,6 @@ if data is not None:
 """
     )
 
-
     st.caption(
         "Colored change pixels may be enlarged "
         "for visibility. Numerical area statistics "
@@ -394,9 +378,8 @@ if data is not None:
         "classification pixels."
     )
 
-
     # =================================================
-    # DATA QUALITY
+    # DATA QUALITY / COMPARABLE COVERAGE
     # =================================================
 
     st.divider()
@@ -405,14 +388,11 @@ if data is not None:
         "📡 Data Quality"
     )
 
-
     coverage = result[
         "coverage_percent"
     ]
 
-
     q1, q2, q3 = st.columns(3)
-
 
     q1.metric(
         "ML observations before",
@@ -421,7 +401,6 @@ if data is not None:
         ],
     )
 
-
     q2.metric(
         "ML observations after",
         result[
@@ -429,36 +408,50 @@ if data is not None:
         ],
     )
 
-
     q3.metric(
         "Comparable coverage",
         f"{coverage:.1f}%",
     )
 
+    coverage_info = get_coverage_interpretation(
+        coverage
+    )
 
-    if coverage >= 70:
+    coverage_level = coverage_info[
+        "level"
+    ]
+
+    coverage_description = coverage_info[
+        "description"
+    ]
+
+    if coverage_level == "GOOD":
 
         st.success(
-            "Data quality: GOOD — a large "
-            "portion of the selected region "
-            "passed the confidence threshold."
+            f"Comparable coverage: GOOD — "
+            f"{coverage_description}"
         )
 
-    elif coverage >= 40:
+    elif coverage_level == "MODERATE":
 
         st.warning(
-            "Data quality: MODERATE — only "
-            "part of the selected region passed "
-            "the confidence threshold."
+            f"Comparable coverage: MODERATE — "
+            f"{coverage_description}"
+        )
+
+    elif coverage_level == "LIMITED":
+
+        st.warning(
+            f"Comparable coverage: LIMITED — "
+            f"{coverage_description}"
         )
 
     else:
 
         st.error(
-            "Data quality: LOW — results "
-            "should be interpreted cautiously."
+            f"Comparable coverage: VERY LOW — "
+            f"{coverage_description}"
         )
-
 
     st.caption(
         "Coverage is not an accuracy percentage. "
@@ -466,7 +459,6 @@ if data is not None:
         "area meeting the 60% ML confidence "
         "threshold in both periods."
     )
-
 
     # =================================================
     # LAND COVER
@@ -478,11 +470,9 @@ if data is not None:
         "🌍 Land-Cover Analysis"
     )
 
-
     before_col, after_col = (
         st.columns(2)
     )
-
 
     with before_col:
 
@@ -518,7 +508,6 @@ if data is not None:
             ),
         )
 
-
     with after_col:
 
         st.markdown(
@@ -553,7 +542,6 @@ if data is not None:
             ),
         )
 
-
     # =================================================
     # NET DIFFERENCE
     # =================================================
@@ -563,7 +551,6 @@ if data is not None:
     st.subheader(
         "📈 Net Land-Cover Difference"
     )
-
 
     vegetation_change = (
         result[
@@ -575,7 +562,6 @@ if data is not None:
         ]
     )
 
-
     built_change = (
         result[
             "after_built_km2"
@@ -585,7 +571,6 @@ if data is not None:
             "before_built_km2"
         ]
     )
-
 
     water_change = (
         result[
@@ -597,33 +582,27 @@ if data is not None:
         ]
     )
 
-
     n1, n2, n3 = st.columns(3)
-
 
     n1.metric(
         "Vegetation",
         f"{vegetation_change:+.3f} km²",
     )
 
-
     n2.metric(
         "Built-up",
         f"{built_change:+.3f} km²",
     )
-
 
     n3.metric(
         "Water",
         f"{water_change:+.3f} km²",
     )
 
-
     st.caption(
         "Net differences apply only to "
         "high-confidence comparable pixels."
     )
-
 
     # =================================================
     # TRANSITIONS
@@ -635,9 +614,7 @@ if data is not None:
         "🔄 High-Confidence Transitions"
     )
 
-
     t1, t2, t3 = st.columns(3)
-
 
     t1.metric(
         "Vegetation → Built-up",
@@ -646,14 +623,12 @@ if data is not None:
         ),
     )
 
-
     t2.metric(
         "Built-up → Vegetation",
         (
             f"{result['built_to_vegetation_km2']:.4f} km²"
         ),
     )
-
 
     t3.metric(
         "Bare → Built-up",
@@ -662,9 +637,7 @@ if data is not None:
         ),
     )
 
-
     t4, t5 = st.columns(2)
-
 
     t4.metric(
         "Water → Non-water",
@@ -673,14 +646,12 @@ if data is not None:
         ),
     )
 
-
     t5.metric(
         "Non-water → Water",
         (
             f"{result['nonwater_to_water_km2']:.4f} km²"
         ),
     )
-
 
     # =================================================
     # AUTOMATIC SUMMARY
@@ -692,7 +663,6 @@ if data is not None:
         "🤖 SetQuery AI Analysis"
     )
 
-
     summary = (
         generate_analysis_summary(
             location=location,
@@ -702,17 +672,14 @@ if data is not None:
         )
     )
 
-
     st.write(
         summary
     )
-
 
     st.caption(
         "This summary is generated directly "
         "from the measured satellite/ML results."
     )
-
 
     # =================================================
     # QUERY SYSTEM
@@ -722,7 +689,6 @@ if data is not None:
         "### 💬 Ask SetQuery AI"
     )
 
-
     user_question = st.text_input(
         "Ask a question about this analysis",
         placeholder=(
@@ -730,7 +696,6 @@ if data is not None:
         ),
         key="analysis_question",
     )
-
 
     if user_question:
 
@@ -768,6 +733,9 @@ if data is not None:
                     f"Gemini error: {error}"
                 )
 
+        st.write(
+            answer
+        )
 
     # =================================================
     # COVERAGE
@@ -779,9 +747,7 @@ if data is not None:
         "📊 Analysis Coverage"
     )
 
-
     c1, c2, c3 = st.columns(3)
-
 
     c1.metric(
         "Requested area",
@@ -790,7 +756,6 @@ if data is not None:
         ),
     )
 
-
     c2.metric(
         "Comparable area",
         (
@@ -798,12 +763,10 @@ if data is not None:
         ),
     )
 
-
     c3.metric(
         "Coverage",
         f"{coverage:.1f}%",
     )
-
 
     st.info(
         "Results are satellite-derived "
