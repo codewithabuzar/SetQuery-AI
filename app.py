@@ -27,13 +27,14 @@ from historical_report import (
 from query import answer_query
 from llm import (
     ask_gemini,
+    ask_gemini_historical,
     LLMUnavailableError,
     LLMConfigurationError,
 )
 
 
 # ==========================================================
-# CONFIG
+# CONFIGURATION
 # ==========================================================
 
 CONFIDENCE_THRESHOLD = 0.60
@@ -44,7 +45,7 @@ RADIUS_DEFAULT_KM = 10
 
 
 # ==========================================================
-# PAGE
+# PAGE CONFIGURATION
 # ==========================================================
 
 st.set_page_config(
@@ -56,7 +57,7 @@ st.set_page_config(
 
 
 # ==========================================================
-# STYLE
+# PROFESSIONAL DARK GEOSPATIAL THEME
 # ==========================================================
 
 st.markdown(
@@ -66,17 +67,26 @@ st.markdown(
 :root {
     --bg: #06111a;
     --panel: #0b1b27;
-    --border: rgba(121,177,211,.16);
+
+    --border:
+        rgba(121, 177, 211, 0.16);
+
     --cyan: #22c1f6;
+
     --text: #edf7fd;
     --muted: #8ca7b9;
 }
+
+
+/* =========================================================
+   APP
+========================================================= */
 
 .stApp {
     background:
         radial-gradient(
             circle at 75% -10%,
-            rgba(34,193,246,.08),
+            rgba(34, 193, 246, 0.08),
             transparent 34%
         ),
         linear-gradient(
@@ -85,24 +95,47 @@ st.markdown(
             #06111a
         );
 
-    color: var(--text);
+    color:
+        var(--text);
 }
 
+
 .block-container {
-    max-width: 1500px;
-    padding-top: 3.5rem;
-    padding-bottom: 4rem;
+    max-width:
+        1500px;
+
+    padding-top:
+        3.5rem;
+
+    padding-bottom:
+        4rem;
 }
+
+
+/* =========================================================
+   STREAMLIT CHROME
+========================================================= */
 
 #MainMenu,
 footer {
-    visibility: hidden;
+    visibility:
+        hidden;
 }
 
+
 header[data-testid="stHeader"] {
-    background: #07131d;
-    border-bottom: 1px solid var(--border);
+    background:
+        #07131d;
+
+    border-bottom:
+        1px solid
+        var(--border);
 }
+
+
+/* =========================================================
+   SIDEBAR
+========================================================= */
 
 section[data-testid="stSidebar"] {
     background:
@@ -112,174 +145,324 @@ section[data-testid="stSidebar"] {
             #06121b
         );
 
-    border-right: 1px solid var(--border);
+    border-right:
+        1px solid
+        var(--border);
 }
+
+
+/* =========================================================
+   BRAND
+========================================================= */
 
 .sq-brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 8px;
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    gap:
+        12px;
+
+    margin-bottom:
+        8px;
 }
+
 
 .sq-brand-icon {
-    width: 42px;
-    height: 42px;
+    width:
+        42px;
 
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    height:
+        42px;
 
-    border-radius: 12px;
+    display:
+        flex;
 
-    color: var(--cyan);
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    border-radius:
+        12px;
+
+    color:
+        var(--cyan);
 
     background:
-        rgba(34,193,246,.1);
+        rgba(
+            34,
+            193,
+            246,
+            0.10
+        );
 
     border:
-        1px solid rgba(34,193,246,.35);
+        1px solid
+        rgba(
+            34,
+            193,
+            246,
+            0.35
+        );
 }
+
 
 .sq-brand-name {
-    color: white;
-    font-weight: 800;
-    letter-spacing: .07em;
+    color:
+        white;
+
+    font-weight:
+        800;
+
+    letter-spacing:
+        0.07em;
 }
 
+
 .sq-brand-sub {
-    color: #65b6dc;
-    font-size: 11px;
-    letter-spacing: .1em;
+    color:
+        #65b6dc;
+
+    font-size:
+        11px;
+
+    letter-spacing:
+        0.10em;
 }
+
+
+/* =========================================================
+   HERO / RESULT
+========================================================= */
 
 .sq-hero,
 .sq-result {
-    padding: 22px 24px;
+    padding:
+        22px 24px;
 
     border:
-        1px solid var(--border);
+        1px solid
+        var(--border);
 
-    border-radius: 16px;
+    border-radius:
+        16px;
 
     background:
         linear-gradient(
             135deg,
-            rgba(13,32,46,.94),
-            rgba(9,25,36,.92)
+            rgba(13, 32, 46, 0.94),
+            rgba(9, 25, 36, 0.92)
         );
 
-    margin-bottom: 20px;
+    margin-bottom:
+        20px;
 }
+
 
 .sq-eyebrow {
-    color: var(--cyan);
-
-    font-size: 11px;
-    font-weight: 800;
-
-    letter-spacing: .12em;
-    text-transform: uppercase;
-}
-
-.sq-title {
-    margin-top: 6px;
-
-    color: #f4faff;
+    color:
+        var(--cyan);
 
     font-size:
-        clamp(28px,4vw,44px);
+        11px;
 
-    font-weight: 760;
+    font-weight:
+        800;
 
-    line-height: 1.1;
+    letter-spacing:
+        0.12em;
+
+    text-transform:
+        uppercase;
 }
+
+
+.sq-title {
+    margin-top:
+        6px;
+
+    color:
+        #f4faff;
+
+    font-size:
+        clamp(
+            28px,
+            4vw,
+            44px
+        );
+
+    font-weight:
+        760;
+
+    line-height:
+        1.1;
+}
+
 
 .sq-location {
-    margin-top: 6px;
+    margin-top:
+        6px;
 
-    color: white;
+    color:
+        white;
 
-    font-size: 25px;
-    font-weight: 720;
+    font-size:
+        25px;
+
+    font-weight:
+        720;
 }
+
 
 .sq-meta {
-    margin-top: 8px;
+    margin-top:
+        8px;
 
-    color: var(--muted);
+    color:
+        var(--muted);
 
-    font-size: 14px;
+    font-size:
+        14px;
 }
+
 
 .sq-mode {
-    display: inline-flex;
+    display:
+        inline-flex;
 
-    margin-top: 12px;
+    margin-top:
+        12px;
 
-    padding: 6px 10px;
+    padding:
+        6px 10px;
 
-    border-radius: 999px;
+    border-radius:
+        999px;
 
     border:
-        1px solid rgba(34,193,246,.32);
+        1px solid
+        rgba(
+            34,
+            193,
+            246,
+            0.32
+        );
 
     background:
-        rgba(34,193,246,.08);
+        rgba(
+            34,
+            193,
+            246,
+            0.08
+        );
 
-    color: #75d9ff;
+    color:
+        #75d9ff;
 
-    font-size: 11px;
-    font-weight: 800;
+    font-size:
+        11px;
 
-    letter-spacing: .06em;
-    text-transform: uppercase;
+    font-weight:
+        800;
+
+    letter-spacing:
+        0.06em;
+
+    text-transform:
+        uppercase;
 }
+
+
+/* =========================================================
+   SECTION LABEL
+========================================================= */
 
 .sq-section {
-    color: var(--cyan);
+    color:
+        var(--cyan);
 
-    font-size: 11px;
-    font-weight: 800;
+    font-size:
+        11px;
 
-    letter-spacing: .12em;
-    text-transform: uppercase;
+    font-weight:
+        800;
 
-    margin-bottom: -7px;
+    letter-spacing:
+        0.12em;
+
+    text-transform:
+        uppercase;
+
+    margin-bottom:
+        -7px;
 }
 
-div[data-testid="stMetric"] {
-    min-height: 88px;
 
-    padding: .85rem 1rem;
+/* =========================================================
+   METRICS
+========================================================= */
+
+div[data-testid="stMetric"] {
+    min-height:
+        88px;
+
+    padding:
+        0.85rem 1rem;
 
     border:
-        1px solid var(--border);
+        1px solid
+        var(--border);
 
-    border-radius: 13px;
+    border-radius:
+        13px;
 
     background:
         linear-gradient(
             145deg,
-            rgba(14,34,49,.88),
-            rgba(9,25,36,.88)
+            rgba(14, 34, 49, 0.88),
+            rgba(9, 25, 36, 0.88)
         );
 }
 
+
+/* =========================================================
+   IMAGES
+========================================================= */
+
 div[data-testid="stImage"] img {
-    border-radius: 13px;
-    border: 1px solid var(--border);
+    border-radius:
+        13px;
+
+    border:
+        1px solid
+        var(--border);
 }
+
+
+/* =========================================================
+   BUTTONS
+========================================================= */
 
 div[data-testid="stButton"]
 button[kind="primary"],
 div[data-testid="stFormSubmitButton"]
 button[kind="primary"] {
-    width: 100%;
-    min-height: 46px;
 
-    border: 0;
-    border-radius: 10px;
+    width:
+        100%;
+
+    min-height:
+        46px;
+
+    border:
+        0;
+
+    border-radius:
+        10px;
 
     background:
         linear-gradient(
@@ -288,49 +471,108 @@ button[kind="primary"] {
             #18a8d6
         );
 
-    color: white;
-    font-weight: 750;
+    color:
+        white;
+
+    font-weight:
+        750;
 }
+
+
+/* =========================================================
+   LEGEND
+========================================================= */
 
 .sq-legend {
-    display: flex;
-    flex-wrap: wrap;
+    display:
+        flex;
 
-    gap: 8px;
+    flex-wrap:
+        wrap;
 
-    margin-top: 12px;
+    gap:
+        8px;
+
+    margin-top:
+        12px;
 }
+
 
 .sq-legend-item {
-    display: inline-flex;
-    align-items: center;
+    display:
+        inline-flex;
 
-    gap: 7px;
+    align-items:
+        center;
 
-    padding: 6px 10px;
+    gap:
+        7px;
+
+    padding:
+        6px 10px;
 
     border:
-        1px solid var(--border);
+        1px solid
+        var(--border);
 
-    border-radius: 999px;
+    border-radius:
+        999px;
 
-    color: #bcd0dc;
+    color:
+        #bcd0dc;
 
-    font-size: 12px;
+    font-size:
+        12px;
 }
+
 
 .sq-dot {
-    display: inline-block;
+    display:
+        inline-block;
 
-    width: 8px;
-    height: 8px;
+    width:
+        8px;
 
-    border-radius: 50%;
+    height:
+        8px;
+
+    border-radius:
+        50%;
 }
 
+
 hr {
-    margin: 2rem 0 !important;
-    border-color: rgba(121,177,211,.11) !important;
+    margin:
+        2rem 0 !important;
+
+    border-color:
+        rgba(
+            121,
+            177,
+            211,
+            0.11
+        ) !important;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 900px) {
+
+    .block-container {
+        padding-left:
+            1rem;
+
+        padding-right:
+            1rem;
+    }
+
+    .sq-location {
+        font-size:
+            21px;
+    }
 }
 
 </style>
@@ -343,7 +585,14 @@ hr {
 # HELPERS
 # ==========================================================
 
-def section(label, title, description=None):
+def section(
+    label,
+    title,
+    description=None,
+):
+    """
+    Render a consistent section heading.
+    """
 
     st.markdown(
         (
@@ -354,38 +603,59 @@ def section(label, title, description=None):
         unsafe_allow_html=True,
     )
 
-    st.subheader(title)
+    st.subheader(
+        title
+    )
 
     if description:
-        st.caption(description)
+
+        st.caption(
+            description
+        )
 
 
-def sensor_text(sensor_list):
+def sensor_text(
+    sensor_list,
+):
+    """
+    Format Landsat sensor metadata.
+    """
 
     return ", ".join(
         (
             f"{item['name']} "
-            f"({item['observations']})"
+            f"({item['observations']} observations)"
         )
         for item in sensor_list
     )
 
 
 # ==========================================================
-# SESSION
+# SESSION STATE
 # ==========================================================
 
 defaults = {
-    "analysis_data": None,
-    "ai_answer": None,
-    "ai_source": None,
-    "ai_status": None,
+    "analysis_data":
+        None,
+
+    "ai_answer":
+        None,
+
+    "ai_source":
+        None,
+
+    "ai_status":
+        None,
 }
+
 
 for key, value in defaults.items():
 
     if key not in st.session_state:
-        st.session_state[key] = value
+
+        st.session_state[
+            key
+        ] = value
 
 
 # ==========================================================
@@ -397,7 +667,9 @@ with st.sidebar:
     st.markdown(
         (
             '<div class="sq-brand">'
-            '<div class="sq-brand-icon">◉</div>'
+            '<div class="sq-brand-icon">'
+            "◉"
+            "</div>"
             "<div>"
             '<div class="sq-brand-name">'
             "SETQUERY AI"
@@ -412,26 +684,39 @@ with st.sidebar:
     )
 
     st.caption(
-        "Automatic modern / historical satellite analysis"
+        "Automatic modern / historical "
+        "satellite analysis"
     )
 
     st.divider()
 
-    st.markdown("### New analysis")
+    st.markdown(
+        "### New analysis"
+    )
 
     location_name = st.text_input(
         "Location",
-        placeholder="Mumbai, Delhi, London...",
+        placeholder=(
+            "Mumbai, Delhi, London..."
+        ),
     )
 
     before_date = st.date_input(
         "Before target date",
-        value=date(2022, 9, 15),
+        value=date(
+            2022,
+            9,
+            15,
+        ),
     )
 
     after_date = st.date_input(
         "After target date",
-        value=date(2025, 9, 15),
+        value=date(
+            2025,
+            9,
+            15,
+        ),
     )
 
     radius_km = st.slider(
@@ -442,12 +727,17 @@ with st.sidebar:
         format="%d km",
     )
 
-    predicted_mode = choose_analysis_mode(
-        before_date,
-        after_date,
+    predicted_mode = (
+        choose_analysis_mode(
+            before_date,
+            after_date,
+        )
     )
 
-    if predicted_mode == "modern_ml":
+    if (
+        predicted_mode
+        == "modern_ml"
+    ):
 
         st.info(
             "Mode: Modern ML\n\n"
@@ -469,16 +759,28 @@ with st.sidebar:
 
 
 # ==========================================================
-# RUN
+# RUN ANALYSIS
 # ==========================================================
 
 if run_clicked:
 
-    # Never display stale results after a failed new request.
-    st.session_state.analysis_data = None
-    st.session_state.ai_answer = None
-    st.session_state.ai_source = None
-    st.session_state.ai_status = None
+    # Do not display old results when a new
+    # request fails.
+    st.session_state.analysis_data = (
+        None
+    )
+
+    st.session_state.ai_answer = (
+        None
+    )
+
+    st.session_state.ai_source = (
+        None
+    )
+
+    st.session_state.ai_status = (
+        None
+    )
 
     if not location_name.strip():
 
@@ -500,9 +802,11 @@ if run_clicked:
                     )
                 )
 
-                resolved = geocoder.geocode(
-                    location_name,
-                    timeout=10,
+                resolved = (
+                    geocoder.geocode(
+                        location_name,
+                        timeout=10,
+                    )
                 )
 
                 if resolved is None:
@@ -511,15 +815,27 @@ if run_clicked:
                         "Location not found."
                     )
 
-                routed = run_routed_analysis(
-                    latitude=resolved.latitude,
-                    longitude=resolved.longitude,
-                    before_date=str(before_date),
-                    after_date=str(after_date),
-                    radius_km=radius_km,
-                    confidence_threshold=(
-                        CONFIDENCE_THRESHOLD
-                    ),
+                routed = (
+                    run_routed_analysis(
+                        latitude=(
+                            resolved.latitude
+                        ),
+                        longitude=(
+                            resolved.longitude
+                        ),
+                        before_date=str(
+                            before_date
+                        ),
+                        after_date=str(
+                            after_date
+                        ),
+                        radius_km=(
+                            radius_km
+                        ),
+                        confidence_threshold=(
+                            CONFIDENCE_THRESHOLD
+                        ),
+                    )
                 )
 
                 st.session_state.analysis_data = {
@@ -569,15 +885,24 @@ if run_clicked:
             with st.expander(
                 "Technical details"
             ):
-                st.exception(error)
+
+                st.exception(
+                    error
+                )
+
+
+# ==========================================================
+# LOAD ANALYSIS
+# ==========================================================
+
+data = (
+    st.session_state.analysis_data
+)
 
 
 # ==========================================================
 # EMPTY PAGE
 # ==========================================================
-
-data = st.session_state.analysis_data
-
 
 if data is None:
 
@@ -604,12 +929,18 @@ if data is None:
 
     c1.metric(
         "Modern mode",
-        "Sentinel-2 + DW",
+        "Sentinel-2 + Dynamic World",
     )
 
     c2.metric(
         "Historical mode",
-        "Landsat",
+        "Landsat Spectral",
+    )
+
+    st.info(
+        "Enter a study area in the sidebar. "
+        "SetQuery AI automatically selects a "
+        "compatible analysis methodology."
     )
 
     st.stop()
@@ -619,19 +950,38 @@ if data is None:
 # COMMON RESULT VARIABLES
 # ==========================================================
 
-mode = data["mode"]
+mode = data[
+    "mode"
+]
 
-result = data["result"]
+result = data[
+    "result"
+]
 
-images = data["images"]
+images = data[
+    "images"
+]
 
-location = data["location"]
+location = data[
+    "location"
+]
 
-before = data["before_date"]
-after = data["after_date"]
+before = data[
+    "before_date"
+]
 
-radius = data["radius_km"]
+after = data[
+    "after_date"
+]
 
+radius = data[
+    "radius_km"
+]
+
+
+# ==========================================================
+# RESULT HEADER
+# ==========================================================
 
 st.markdown(
     (
@@ -657,7 +1007,7 @@ st.markdown(
 
 
 # ==========================================================
-# MODERN MODE
+# MODERN ML MODE
 # ==========================================================
 
 if mode == "modern_ml":
@@ -672,27 +1022,47 @@ if mode == "modern_ml":
         )
     )
 
-    if quality["level"] == "VERY LOW":
+    if (
+        quality["level"]
+        == "VERY LOW"
+    ):
 
         st.error(
             "VERY LOW comparable coverage — "
             f"{quality['description']}"
         )
 
+    elif (
+        quality["level"]
+        == "LIMITED"
+    ):
+
+        st.warning(
+            "LIMITED comparable coverage — "
+            f"{quality['description']}"
+        )
+
+    # ------------------------------------------------------
+    # VISUALIZATION
+    # ------------------------------------------------------
+
     section(
         "Visualization",
         "Satellite change viewer",
     )
 
-    change_tab, before_tab, after_tab, compare_tab = (
-        st.tabs(
-            [
-                "CHANGE MAP",
-                "BEFORE",
-                "AFTER",
-                "SIDE BY SIDE",
-            ]
-        )
+    (
+        change_tab,
+        before_tab,
+        after_tab,
+        compare_tab,
+    ) = st.tabs(
+        [
+            "CHANGE MAP",
+            "BEFORE",
+            "AFTER",
+            "SIDE BY SIDE",
+        ]
     )
 
     with change_tab:
@@ -706,68 +1076,110 @@ if mode == "modern_ml":
             width="stretch",
         )
 
+        legend_html = (
+            '<div class="sq-legend">'
+
+            '<span class="sq-legend-item">'
+            '<span class="sq-dot" '
+            'style="background:#ff0000"></span>'
+            "Vegetation → Built-up"
+            "</span>"
+
+            '<span class="sq-legend-item">'
+            '<span class="sq-dot" '
+            'style="background:#00ff00"></span>'
+            "Built-up → Vegetation"
+            "</span>"
+
+            '<span class="sq-legend-item">'
+            '<span class="sq-dot" '
+            'style="background:#ffff00"></span>'
+            "Bare → Built-up"
+            "</span>"
+
+            '<span class="sq-legend-item">'
+            '<span class="sq-dot" '
+            'style="background:#0066ff"></span>'
+            "Non-water → Water"
+            "</span>"
+
+            '<span class="sq-legend-item">'
+            '<span class="sq-dot" '
+            'style="background:#ff8800"></span>'
+            "Water → Non-water"
+            "</span>"
+
+            "</div>"
+        )
+
         st.markdown(
-            (
-                '<div class="sq-legend">'
-                '<span class="sq-legend-item">'
-                '<span class="sq-dot" '
-                'style="background:#f00"></span>'
-                "Vegetation → Built-up"
-                "</span>"
-                '<span class="sq-legend-item">'
-                '<span class="sq-dot" '
-                'style="background:#0f0"></span>'
-                "Built-up → Vegetation"
-                "</span>"
-                '<span class="sq-legend-item">'
-                '<span class="sq-dot" '
-                'style="background:#ff0"></span>'
-                "Bare → Built-up"
-                "</span>"
-                '<span class="sq-legend-item">'
-                '<span class="sq-dot" '
-                'style="background:#06f"></span>'
-                "Non-water → Water"
-                "</span>"
-                '<span class="sq-legend-item">'
-                '<span class="sq-dot" '
-                'style="background:#f80"></span>'
-                "Water → Non-water"
-                "</span>"
-                "</div>"
-            ),
+            legend_html,
             unsafe_allow_html=True,
         )
 
     with before_tab:
 
         st.image(
-            images["before_url"],
+            images[
+                "before_url"
+            ],
             width="stretch",
+        )
+
+        st.caption(
+            f"Before target: {before} · "
+            f"{images['before_sentinel_observations']} "
+            "Sentinel-2 observations"
         )
 
     with after_tab:
 
         st.image(
-            images["after_url"],
+            images[
+                "after_url"
+            ],
             width="stretch",
+        )
+
+        st.caption(
+            f"After target: {after} · "
+            f"{images['after_sentinel_observations']} "
+            "Sentinel-2 observations"
         )
 
     with compare_tab:
 
-        c1, c2 = st.columns(2)
-
-        c1.image(
-            images["before_url"],
-            caption=f"Before target · {before}",
-            width="stretch",
+        c1, c2 = (
+            st.columns(2)
         )
 
-        c2.image(
-            images["after_url"],
-            caption=f"After target · {after}",
-            width="stretch",
-        )
+        with c1:
+
+            st.image(
+                images[
+                    "before_url"
+                ],
+                caption=(
+                    f"Before target · {before}"
+                ),
+                width="stretch",
+            )
+
+        with c2:
+
+            st.image(
+                images[
+                    "after_url"
+                ],
+                caption=(
+                    f"After target · {after}"
+                ),
+                width="stretch",
+            )
+
+    # ------------------------------------------------------
+    # LAND COVER
+    # ------------------------------------------------------
 
     st.divider()
 
@@ -780,37 +1192,143 @@ if mode == "modern_ml":
         ),
     )
 
-    m1, m2, m3, m4 = st.columns(4)
+    vegetation_change = (
+        result[
+            "after_vegetation_km2"
+        ]
+        -
+        result[
+            "before_vegetation_km2"
+        ]
+    )
+
+    built_change = (
+        result[
+            "after_built_km2"
+        ]
+        -
+        result[
+            "before_built_km2"
+        ]
+    )
+
+    water_change = (
+        result[
+            "after_water_km2"
+        ]
+        -
+        result[
+            "before_water_km2"
+        ]
+    )
+
+    m1, m2, m3, m4 = (
+        st.columns(4)
+    )
 
     m1.metric(
-        "Coverage",
+        "Comparable coverage",
         f"{coverage:.1f}%",
     )
 
     m2.metric(
         "Comparable area",
-        f"{result['comparable_area_km2']:.2f} km²",
-    )
-
-    veg_change = (
-        result["after_vegetation_km2"]
-        - result["before_vegetation_km2"]
-    )
-
-    built_change = (
-        result["after_built_km2"]
-        - result["before_built_km2"]
+        (
+            f"{result['comparable_area_km2']:.2f} km²"
+        ),
     )
 
     m3.metric(
         "Vegetation net",
-        f"{veg_change:+.3f} km²",
+        f"{vegetation_change:+.3f} km²",
     )
 
     m4.metric(
         "Built-up net",
         f"{built_change:+.3f} km²",
     )
+
+    bcol, acol = (
+        st.columns(2)
+    )
+
+    with bcol:
+
+        st.markdown(
+            f"### Before · {before}"
+        )
+
+        st.metric(
+            "Vegetation",
+            (
+                f"{result['before_vegetation_km2']:.2f} km²"
+            ),
+        )
+
+        st.metric(
+            "Built-up",
+            (
+                f"{result['before_built_km2']:.2f} km²"
+            ),
+        )
+
+        st.metric(
+            "Water",
+            (
+                f"{result['before_water_km2']:.2f} km²"
+            ),
+        )
+
+        st.metric(
+            "Bare ground",
+            (
+                f"{result['before_bare_km2']:.2f} km²"
+            ),
+        )
+
+    with acol:
+
+        st.markdown(
+            f"### After · {after}"
+        )
+
+        st.metric(
+            "Vegetation",
+            (
+                f"{result['after_vegetation_km2']:.2f} km²"
+            ),
+        )
+
+        st.metric(
+            "Built-up",
+            (
+                f"{result['after_built_km2']:.2f} km²"
+            ),
+        )
+
+        st.metric(
+            "Water",
+            (
+                f"{result['after_water_km2']:.2f} km²"
+            ),
+        )
+
+        st.metric(
+            "Bare ground",
+            (
+                f"{result['after_bare_km2']:.2f} km²"
+            ),
+        )
+
+    st.caption(
+        "Coverage is not classification accuracy. "
+        "Net differences refer only to the comparable "
+        "high-confidence subset."
+    )
+
+    # ------------------------------------------------------
+    # TRANSITIONS
+    # ------------------------------------------------------
 
     st.divider()
 
@@ -819,7 +1337,9 @@ if mode == "modern_ml":
         "High-confidence transitions",
     )
 
-    t1, t2, t3 = st.columns(3)
+    t1, t2, t3 = (
+        st.columns(3)
+    )
 
     t1.metric(
         "Vegetation → Built",
@@ -842,16 +1362,36 @@ if mode == "modern_ml":
         ),
     )
 
-    summary = generate_analysis_summary(
-        location,
-        before,
-        after,
-        result,
+    t4, t5 = (
+        st.columns(2)
+    )
+
+    t4.metric(
+        "Water → Non-water",
+        (
+            f"{result['water_to_nonwater_km2']:.4f} km²"
+        ),
+    )
+
+    t5.metric(
+        "Non-water → Water",
+        (
+            f"{result['nonwater_to_water_km2']:.4f} km²"
+        ),
+    )
+
+    summary = (
+        generate_analysis_summary(
+            location,
+            before,
+            after,
+            result,
+        )
     )
 
 
 # ==========================================================
-# HISTORICAL MODE
+# HISTORICAL SPECTRAL MODE
 # ==========================================================
 
 else:
@@ -873,25 +1413,45 @@ else:
         "direct land-cover area measurements."
     )
 
+    if quality == "VERY LOW":
+
+        st.error(
+            "Comparable Landsat coverage is very low. "
+            "Broad area-level conclusions are not "
+            "supported."
+        )
+
+    # ------------------------------------------------------
+    # HISTORICAL IMAGERY
+    # ------------------------------------------------------
+
     section(
         "Historical imagery",
         "Landsat comparison",
+        (
+            "Cloud-masked Landsat composites around "
+            "the selected target dates."
+        ),
     )
 
-    before_tab, after_tab, compare_tab = (
-        st.tabs(
-            [
-                "BEFORE",
-                "AFTER",
-                "SIDE BY SIDE",
-            ]
-        )
+    (
+        before_tab,
+        after_tab,
+        compare_tab,
+    ) = st.tabs(
+        [
+            "BEFORE",
+            "AFTER",
+            "SIDE BY SIDE",
+        ]
     )
 
     with before_tab:
 
         st.image(
-            images["before_url"],
+            images[
+                "before_url"
+            ],
             width="stretch",
         )
 
@@ -907,7 +1467,9 @@ else:
     with after_tab:
 
         st.image(
-            images["after_url"],
+            images[
+                "after_url"
+            ],
             width="stretch",
         )
 
@@ -922,23 +1484,37 @@ else:
 
     with compare_tab:
 
-        c1, c2 = st.columns(2)
-
-        c1.image(
-            images["before_url"],
-            caption=(
-                f"Before · {before}"
-            ),
-            width="stretch",
+        c1, c2 = (
+            st.columns(2)
         )
 
-        c2.image(
-            images["after_url"],
-            caption=(
-                f"After · {after}"
-            ),
-            width="stretch",
-        )
+        with c1:
+
+            st.image(
+                images[
+                    "before_url"
+                ],
+                caption=(
+                    f"Before · {before}"
+                ),
+                width="stretch",
+            )
+
+        with c2:
+
+            st.image(
+                images[
+                    "after_url"
+                ],
+                caption=(
+                    f"After · {after}"
+                ),
+                width="stretch",
+            )
+
+    # ------------------------------------------------------
+    # SPECTRAL MEASUREMENTS
+    # ------------------------------------------------------
 
     st.divider()
 
@@ -952,7 +1528,9 @@ else:
         ),
     )
 
-    h1, h2, h3, h4 = st.columns(4)
+    h1, h2, h3, h4 = (
+        st.columns(4)
+    )
 
     h1.metric(
         "Comparable coverage",
@@ -961,17 +1539,23 @@ else:
 
     h2.metric(
         "NDVI Δ",
-        f"{result['ndvi_change']:+.3f}",
+        (
+            f"{result['ndvi_change']:+.3f}"
+        ),
     )
 
     h3.metric(
         "MNDWI Δ",
-        f"{result['mndwi_change']:+.3f}",
+        (
+            f"{result['mndwi_change']:+.3f}"
+        ),
     )
 
     h4.metric(
         "NDBI Δ",
-        f"{result['ndbi_change']:+.3f}",
+        (
+            f"{result['ndbi_change']:+.3f}"
+        ),
     )
 
     before_indices, after_indices = (
@@ -986,17 +1570,23 @@ else:
 
         st.metric(
             "Mean NDVI",
-            f"{result['before_mean_ndvi']:.3f}",
+            (
+                f"{result['before_mean_ndvi']:.3f}"
+            ),
         )
 
         st.metric(
             "Mean MNDWI",
-            f"{result['before_mean_mndwi']:.3f}",
+            (
+                f"{result['before_mean_mndwi']:.3f}"
+            ),
         )
 
         st.metric(
             "Mean NDBI",
-            f"{result['before_mean_ndbi']:.3f}",
+            (
+                f"{result['before_mean_ndbi']:.3f}"
+            ),
         )
 
     with after_indices:
@@ -1007,22 +1597,36 @@ else:
 
         st.metric(
             "Mean NDVI",
-            f"{result['after_mean_ndvi']:.3f}",
+            (
+                f"{result['after_mean_ndvi']:.3f}"
+            ),
         )
 
         st.metric(
             "Mean MNDWI",
-            f"{result['after_mean_mndwi']:.3f}",
+            (
+                f"{result['after_mean_mndwi']:.3f}"
+            ),
         )
 
         st.metric(
             "Mean NDBI",
-            f"{result['after_mean_ndbi']:.3f}",
+            (
+                f"{result['after_mean_ndbi']:.3f}"
+            ),
         )
 
-    for warning in result[
-        "warnings"
-    ]:
+    st.caption(
+        "NDVI is vegetation-related, MNDWI is "
+        "water-related, and NDBI is built/bare-related. "
+        "These are spectral indicators, not direct "
+        "categorical area measurements."
+    )
+
+    for warning in result.get(
+        "warnings",
+        [],
+    ):
 
         st.warning(
             warning
@@ -1055,7 +1659,7 @@ st.info(
 
 
 # ==========================================================
-# Q&A
+# GROUNDED Q&A
 # ==========================================================
 
 st.divider()
@@ -1063,11 +1667,17 @@ st.divider()
 section(
     "Grounded Q&A",
     "Ask SetQuery AI",
+    (
+        "Gemini receives only the structured measurements "
+        "for the active analysis mode. A deterministic "
+        "fallback remains available."
+    ),
 )
 
 
 with st.form(
     "question_form",
+    clear_on_submit=False,
 ):
 
     question = st.text_input(
@@ -1077,51 +1687,115 @@ with st.form(
         ),
     )
 
-    ask = st.form_submit_button(
-        "ASK SETQUERY AI",
-        type="primary",
-        use_container_width=True,
+    ask_clicked = (
+        st.form_submit_button(
+            "ASK SETQUERY AI",
+            type="primary",
+            use_container_width=True,
+        )
     )
 
 
-if ask and question.strip():
+# ==========================================================
+# PROCESS Q&A
+# ==========================================================
+
+if (
+    ask_clicked
+    and question.strip()
+):
+
+    # ------------------------------------------------------
+    # HISTORICAL GEMINI
+    # ------------------------------------------------------
 
     if mode == "historical_spectral":
 
-        # Historical Gemini grounding is intentionally
-        # not enabled until a separate spectral context
-        # is added to llm.py.
-        answer = (
-            answer_historical_query(
-                question,
-                result,
-            )
-        )
+        try:
 
-        st.session_state.ai_source = (
-            "historical-local"
-        )
+            answer = (
+                ask_gemini_historical(
+                    question=question,
+                    result=result,
+                    location=location,
+                    before_date=before,
+                    after_date=after,
+                )
+            )
+
+            st.session_state.ai_source = (
+                "gemini-historical"
+            )
+
+            st.session_state.ai_status = (
+                None
+            )
+
+        except (
+            LLMUnavailableError,
+            LLMConfigurationError,
+        ) as error:
+
+            answer = (
+                answer_historical_query(
+                    question,
+                    result,
+                )
+            )
+
+            st.session_state.ai_source = (
+                "historical-local"
+            )
+
+            st.session_state.ai_status = (
+                str(error)
+            )
+
+        except Exception as error:
+
+            answer = (
+                answer_historical_query(
+                    question,
+                    result,
+                )
+            )
+
+            st.session_state.ai_source = (
+                "historical-local"
+            )
+
+            st.session_state.ai_status = (
+                f"Unexpected AI error: {error}"
+            )
+
+    # ------------------------------------------------------
+    # MODERN GEMINI
+    # ------------------------------------------------------
 
     else:
 
         try:
 
             answer = ask_gemini(
-                question,
-                result,
-                location,
-                before,
-                after,
+                question=question,
+                result=result,
+                location=location,
+                before_date=before,
+                after_date=after,
             )
 
             st.session_state.ai_source = (
                 "gemini"
             )
 
+            st.session_state.ai_status = (
+                None
+            )
+
         except (
             LLMUnavailableError,
             LLMConfigurationError,
-        ):
+        ) as error:
 
             answer = answer_query(
                 question,
@@ -1132,30 +1806,84 @@ if ask and question.strip():
                 "fallback"
             )
 
-    st.session_state.ai_answer = answer
+            st.session_state.ai_status = (
+                str(error)
+            )
 
+        except Exception as error:
+
+            answer = answer_query(
+                question,
+                result,
+            )
+
+            st.session_state.ai_source = (
+                "fallback"
+            )
+
+            st.session_state.ai_status = (
+                f"Unexpected AI error: {error}"
+            )
+
+    st.session_state.ai_answer = (
+        answer
+    )
+
+
+# ==========================================================
+# DISPLAY AI RESPONSE
+# ==========================================================
 
 if st.session_state.ai_answer:
 
-    source = st.session_state.ai_source
+    source = (
+        st.session_state.ai_source
+    )
 
     if source == "gemini":
 
         st.success(
-            "Gemini grounded response"
+            "Gemini grounded response · Modern ML"
         )
 
-    elif source == "historical-local":
+    elif (
+        source
+        == "gemini-historical"
+    ):
 
-        st.info(
-            "Historical deterministic response"
+        st.success(
+            "Gemini grounded response · "
+            "Historical Spectral"
         )
+
+    elif (
+        source
+        == "historical-local"
+    ):
+
+        st.warning(
+            "Gemini unavailable — showing the "
+            "historical deterministic grounded fallback."
+        )
+
+        if st.session_state.ai_status:
+
+            st.caption(
+                st.session_state.ai_status
+            )
 
     else:
 
         st.warning(
-            "Gemini unavailable — local grounded fallback"
+            "Gemini unavailable — showing the "
+            "local grounded fallback."
         )
+
+        if st.session_state.ai_status:
+
+            st.caption(
+                st.session_state.ai_status
+            )
 
     st.write(
         st.session_state.ai_answer
@@ -1197,10 +1925,22 @@ with st.expander(
         f"Requested radius: `{radius} km`"
     )
 
+    st.write(
+        f"Before target date: `{before}`"
+    )
+
+    st.write(
+        f"After target date: `{after}`"
+    )
+
     if mode == "historical_spectral":
 
+        st.markdown(
+            "#### Landsat sensors"
+        )
+
         st.write(
-            "Before sensors: "
+            "Before: "
             + sensor_text(
                 result[
                     "before_sensors"
@@ -1209,19 +1949,68 @@ with st.expander(
         )
 
         st.write(
-            "After sensors: "
+            "After: "
             + sensor_text(
                 result[
                     "after_sensors"
                 ]
             )
+        )
 
+        st.markdown(
+            "#### Historical-mode limitations"
+        )
+
+        st.write(
+            "Historical mode compares spectral indices "
+            "rather than Dynamic World land-cover classes."
+        )
+
+        st.write(
+            "Different Landsat generations can have "
+            "spectral bandpass differences that influence "
+            "absolute index values."
+        )
+
+        st.write(
+            "NDBI responds to built and bare surfaces and "
+            "must not be interpreted as exact built-up area."
+        )
+
+    else:
+
+        st.markdown(
+            "#### Modern-mode observations"
+        )
+
+        st.write(
+            "Dynamic World before: "
+            f"`{result['before_observations']}`"
+        )
+
+        st.write(
+            "Dynamic World after: "
+            f"`{result['after_observations']}`"
+        )
+
+        st.write(
+            "Sentinel-2 before: "
+            f"`{images['before_sentinel_observations']}`"
+        )
+
+        st.write(
+            "Sentinel-2 after: "
+            f"`{images['after_sentinel_observations']}`"
         )
 
     st.markdown(
         """
-Results are satellite-derived estimates rather than
-surveyed ground truth. Target dates represent composite
-centers rather than exact satellite acquisition dates.
+#### General interpretation boundaries
+
+- Results are satellite-derived estimates rather than surveyed ground truth.
+- Target dates represent composite centers rather than exact acquisition dates.
+- Comparable coverage is not classification accuracy.
+- The system is intended for area-level analysis.
+- It should not claim exact property-level changes or exact causes.
 """
     )
