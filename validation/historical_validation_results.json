@@ -1,0 +1,267 @@
+[
+  {
+    "requested_location": "New Delhi, India",
+    "before_date": "2012-09-15",
+    "after_date": "2025-09-15",
+    "radius_km": 5,
+    "resolved_location": "New Delhi, Delhi, India",
+    "latitude": 28.6138954,
+    "longitude": 77.2090057,
+    "status": "success",
+    "analysis_mode": "historical_spectral",
+    "method": "Cloud-masked Landsat spectral comparison",
+    "approximate_resolution_m": 30,
+    "total_area_km2": 77.60151235539323,
+    "comparable_area_km2": 77.49143293564634,
+    "coverage_percent": 99.85814784221891,
+    "before_sensors": [
+      {
+        "name": "Landsat 7",
+        "sensor": "ETM+",
+        "observations": 7
+      }
+    ],
+    "after_sensors": [
+      {
+        "name": "Landsat 9",
+        "sensor": "OLI-2",
+        "observations": 6
+      },
+      {
+        "name": "Landsat 8",
+        "sensor": "OLI",
+        "observations": 7
+      }
+    ],
+    "before_observations": 7,
+    "after_observations": 13,
+    "before_mean_ndvi": 0.4129897141371588,
+    "after_mean_ndvi": 0.4974167604649174,
+    "ndvi_change": 0.0844270463277586,
+    "before_mean_mndwi": -0.29835081643558736,
+    "after_mean_mndwi": -0.3112911976252743,
+    "mndwi_change": -0.012940381189686934,
+    "before_mean_ndbi": -0.14296797177221682,
+    "after_mean_ndbi": -0.18343961505844558,
+    "ndbi_change": -0.040471643286228765,
+    "before_image_generated": true,
+    "after_image_generated": true,
+    "warnings": [
+      "This comparison includes Landsat 7. Post-2003 scan-line gaps can affect spatial completeness despite multi-scene compositing.",
+      "Historical mode compares Landsat spectral indices across sensor generations. Bandpass differences can influence absolute index values.",
+      "NDBI is a built/bare spectral indicator and must not be interpreted as exact built-up area."
+    ]
+  },
+  {
+    "requested_location": "Mumbai, Maharashtra, India",
+    "before_date": "2012-09-15",
+    "after_date": "2025-09-15",
+    "radius_km": 5,
+    "resolved_location": "Mumbai, Mumbai Suburban District, Maharashtra, 400051, India",
+    "latitude": 19.054999,
+    "longitude": 72.8692035,
+    "status": "success",
+    "analysis_mode": "historical_spectral",
+    "method": "Cloud-masked Landsat spectral comparison",
+    "approximate_resolution_m": 30,
+    "total_area_km2": 77.60151235539436,
+    "comparable_area_km2": 44.86699303996067,
+    "coverage_percent": 57.817163194554425,
+    "before_sensors": [
+      {
+        "name": "Landsat 7",
+        "sensor": "ETM+",
+        "observations": 1
+      }
+    ],
+    "after_sensors": [
+      {
+        "name": "Landsat 9",
+        "sensor": "OLI-2",
+        "observations": 5
+      },
+      {
+        "name": "Landsat 8",
+        "sensor": "OLI",
+        "observations": 2
+      }
+    ],
+    "before_observations": 1,
+    "after_observations": 7,
+    "before_mean_ndvi": 0.2997512773303828,
+    "after_mean_ndvi": 0.37791715043289037,
+    "ndvi_change": 0.07816587310250755,
+    "before_mean_mndwi": -0.2503481427798042,
+    "after_mean_mndwi": -0.26238025208906285,
+    "mndwi_change": -0.012032109309258632,
+    "before_mean_ndbi": -0.06976640655763736,
+    "after_mean_ndbi": -0.11113767379366711,
+    "ndbi_change": -0.041371267236029755,
+    "before_image_generated": true,
+    "after_image_generated": true,
+    "warnings": [
+      "This comparison includes Landsat 7. Post-2003 scan-line gaps can affect spatial completeness despite multi-scene compositing.",
+      "Historical mode compares Landsat spectral indices across sensor generations. Bandpass differences can influence absolute index values.",
+      "NDBI is a built/bare spectral indicator and must not be interpreted as exact built-up area."
+    ]
+  },
+  {
+    "requested_location": "Ludhiana, Punjab, India",
+    "before_date": "2012-09-15",
+    "after_date": "2025-09-15",
+    "radius_km": 5,
+    "resolved_location": "Ludhiana, Ludhiana (West) Tahsil, Ludhiana, Punjab, 141001, India",
+    "latitude": 30.9090157,
+    "longitude": 75.851601,
+    "status": "success",
+    "analysis_mode": "historical_spectral",
+    "method": "Cloud-masked Landsat spectral comparison",
+    "approximate_resolution_m": 30,
+    "total_area_km2": 77.60151235539227,
+    "comparable_area_km2": 77.52727429046428,
+    "coverage_percent": 99.9043342549975,
+    "before_sensors": [
+      {
+        "name": "Landsat 7",
+        "sensor": "ETM+",
+        "observations": 12
+      }
+    ],
+    "after_sensors": [
+      {
+        "name": "Landsat 9",
+        "sensor": "OLI-2",
+        "observations": 12
+      },
+      {
+        "name": "Landsat 8",
+        "sensor": "OLI",
+        "observations": 12
+      }
+    ],
+    "before_observations": 12,
+    "after_observations": 24,
+    "before_mean_ndvi": 0.2227021848430964,
+    "after_mean_ndvi": 0.27625286544825445,
+    "ndvi_change": 0.05355068060515805,
+    "before_mean_mndwi": -0.2249363818560251,
+    "after_mean_mndwi": -0.27656857994104034,
+    "mndwi_change": -0.051632198085015235,
+    "before_mean_ndbi": -0.0427306434158447,
+    "after_mean_ndbi": -0.026857682435952594,
+    "ndbi_change": 0.015872960979892103,
+    "before_image_generated": true,
+    "after_image_generated": true,
+    "warnings": [
+      "This comparison includes Landsat 7. Post-2003 scan-line gaps can affect spatial completeness despite multi-scene compositing.",
+      "Historical mode compares Landsat spectral indices across sensor generations. Bandpass differences can influence absolute index values.",
+      "NDBI is a built/bare spectral indicator and must not be interpreted as exact built-up area."
+    ]
+  },
+  {
+    "requested_location": "Dehradun, Uttarakhand, India",
+    "before_date": "2012-09-15",
+    "after_date": "2025-09-15",
+    "radius_km": 5,
+    "resolved_location": "Dehradun, Uttarakhand, 248001, India",
+    "latitude": 30.3255646,
+    "longitude": 78.0436813,
+    "status": "success",
+    "analysis_mode": "historical_spectral",
+    "method": "Cloud-masked Landsat spectral comparison",
+    "approximate_resolution_m": 30,
+    "total_area_km2": 77.60151235539263,
+    "comparable_area_km2": 77.45220561032781,
+    "coverage_percent": 99.8075981504316,
+    "before_sensors": [
+      {
+        "name": "Landsat 7",
+        "sensor": "ETM+",
+        "observations": 5
+      }
+    ],
+    "after_sensors": [
+      {
+        "name": "Landsat 9",
+        "sensor": "OLI-2",
+        "observations": 5
+      },
+      {
+        "name": "Landsat 8",
+        "sensor": "OLI",
+        "observations": 4
+      }
+    ],
+    "before_observations": 5,
+    "after_observations": 9,
+    "before_mean_ndvi": 0.492898896581968,
+    "after_mean_ndvi": 0.4715472305130489,
+    "ndvi_change": -0.021351666068919084,
+    "before_mean_mndwi": -0.39296155820430545,
+    "after_mean_mndwi": -0.36385761195415844,
+    "mndwi_change": 0.029103946250147006,
+    "before_mean_ndbi": -0.13387505972130478,
+    "after_mean_ndbi": -0.12543474554548364,
+    "ndbi_change": 0.00844031417582114,
+    "before_image_generated": true,
+    "after_image_generated": true,
+    "warnings": [
+      "This comparison includes Landsat 7. Post-2003 scan-line gaps can affect spatial completeness despite multi-scene compositing.",
+      "Historical mode compares Landsat spectral indices across sensor generations. Bandpass differences can influence absolute index values.",
+      "NDBI is a built/bare spectral indicator and must not be interpreted as exact built-up area."
+    ]
+  },
+  {
+    "requested_location": "Bhopal, Madhya Pradesh, India",
+    "before_date": "2012-09-15",
+    "after_date": "2025-09-15",
+    "radius_km": 5,
+    "resolved_location": "Bhopal, Huzur Tahsil, Bhopal, Madhya Pradesh, 462001, India",
+    "latitude": 23.2584857,
+    "longitude": 77.401989,
+    "status": "success",
+    "analysis_mode": "historical_spectral",
+    "method": "Cloud-masked Landsat spectral comparison",
+    "approximate_resolution_m": 30,
+    "total_area_km2": 77.60151235539304,
+    "comparable_area_km2": 77.17479963830158,
+    "coverage_percent": 99.4501231945877,
+    "before_sensors": [
+      {
+        "name": "Landsat 7",
+        "sensor": "ETM+",
+        "observations": 5
+      }
+    ],
+    "after_sensors": [
+      {
+        "name": "Landsat 9",
+        "sensor": "OLI-2",
+        "observations": 5
+      },
+      {
+        "name": "Landsat 8",
+        "sensor": "OLI",
+        "observations": 6
+      }
+    ],
+    "before_observations": 5,
+    "after_observations": 11,
+    "before_mean_ndvi": 0.3398231044139016,
+    "after_mean_ndvi": 0.42824246736876614,
+    "ndvi_change": 0.08841936295486452,
+    "before_mean_mndwi": -0.2520511622799996,
+    "after_mean_mndwi": -0.2646736946987601,
+    "mndwi_change": -0.012622532418760546,
+    "before_mean_ndbi": -0.10694141885913093,
+    "after_mean_ndbi": -0.13493911168665124,
+    "ndbi_change": -0.027997692827520307,
+    "before_image_generated": true,
+    "after_image_generated": true,
+    "warnings": [
+      "This comparison includes Landsat 7. Post-2003 scan-line gaps can affect spatial completeness despite multi-scene compositing.",
+      "Historical mode compares Landsat spectral indices across sensor generations. Bandpass differences can influence absolute index values.",
+      "NDBI is a built/bare spectral indicator and must not be interpreted as exact built-up area."
+    ]
+  }
+]
