@@ -1,0 +1,648 @@
+:root {
+    --sq-bg: #06111a;
+    --sq-bg-soft: #081722;
+    --sq-panel: #0b1b27;
+    --sq-panel-light: #0e2231;
+
+    --sq-border: rgba(121, 177, 211, 0.16);
+    --sq-border-strong: rgba(34, 193, 246, 0.32);
+
+    --sq-text: #edf7fd;
+    --sq-muted: #8ca7b9;
+
+    --sq-cyan: #22c1f6;
+    --sq-blue: #3b82f6;
+    --sq-green: #39d98a;
+    --sq-yellow: #f5b942;
+    --sq-orange: #fb923c;
+    --sq-red: #fb6470;
+
+    --sq-radius-sm: 10px;
+    --sq-radius: 14px;
+    --sq-radius-lg: 18px;
+}
+
+
+/* =========================================================
+   APPLICATION
+========================================================= */
+
+html,
+body,
+[class*="css"] {
+    font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+}
+
+
+.stApp {
+    background:
+        radial-gradient(
+            circle at 72% -15%,
+            rgba(34, 193, 246, 0.08),
+            transparent 34%
+        ),
+        linear-gradient(
+            180deg,
+            #07131d 0%,
+            #06111a 100%
+        );
+
+    color: var(--sq-text);
+}
+
+
+.block-container {
+    max-width: 1500px;
+
+    padding-top: 3.5rem;
+    padding-bottom: 5rem;
+}
+
+
+/* =========================================================
+   STREAMLIT CHROME
+========================================================= */
+
+#MainMenu,
+footer {
+    visibility: hidden;
+}
+
+
+header[data-testid="stHeader"] {
+    background:
+        rgba(7, 19, 29, 0.96);
+
+    border-bottom:
+        1px solid var(--sq-border);
+}
+
+
+/* =========================================================
+   SIDEBAR
+========================================================= */
+
+section[data-testid="stSidebar"] {
+    background:
+        linear-gradient(
+            180deg,
+            #081722,
+            #06121b
+        );
+
+    border-right:
+        1px solid var(--sq-border);
+}
+
+
+/* =========================================================
+   BRAND
+========================================================= */
+
+.sq-brand {
+    display: flex;
+    align-items: center;
+
+    gap: 12px;
+
+    margin-bottom: 8px;
+}
+
+
+.sq-brand-icon {
+    width: 42px;
+    height: 42px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex: 0 0 42px;
+
+    border-radius: 12px;
+
+    color: var(--sq-cyan);
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(34, 193, 246, 0.14),
+            rgba(59, 130, 246, 0.08)
+        );
+
+    border:
+        1px solid var(--sq-border-strong);
+}
+
+
+.sq-brand-name {
+    color: #ffffff;
+
+    font-weight: 800;
+
+    letter-spacing: 0.07em;
+}
+
+
+.sq-brand-sub {
+    margin-top: 2px;
+
+    color: #65b6dc;
+
+    font-size: 11px;
+
+    letter-spacing: 0.10em;
+
+    text-transform: uppercase;
+}
+
+
+/* =========================================================
+   HERO
+========================================================= */
+
+.sq-hero {
+    padding: 30px;
+
+    margin-bottom: 22px;
+
+    border:
+        1px solid var(--sq-border);
+
+    border-radius:
+        var(--sq-radius-lg);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(15, 39, 56, 0.90),
+            rgba(8, 24, 35, 0.92)
+        );
+
+    box-shadow:
+        0 18px 45px
+        rgba(0, 0, 0, 0.14);
+}
+
+
+.sq-eyebrow {
+    color: var(--sq-cyan);
+
+    font-size: 11px;
+    font-weight: 800;
+
+    letter-spacing: 0.13em;
+
+    text-transform: uppercase;
+}
+
+
+.sq-title {
+    margin-top: 7px;
+
+    color: #f5faff;
+
+    font-size:
+        clamp(30px, 4vw, 46px);
+
+    line-height: 1.08;
+
+    font-weight: 760;
+
+    letter-spacing: -0.035em;
+}
+
+
+.sq-copy {
+    max-width: 820px;
+
+    margin-top: 12px;
+
+    color: #95b0c1;
+
+    font-size: 15px;
+
+    line-height: 1.65;
+}
+
+
+/* =========================================================
+   RESULT HEADER
+========================================================= */
+
+.sq-result-header {
+    padding: 20px 22px;
+
+    margin-bottom: 18px;
+
+    border:
+        1px solid var(--sq-border);
+
+    border-radius:
+        var(--sq-radius-lg);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(13, 32, 46, 0.95),
+            rgba(8, 23, 34, 0.95)
+        );
+}
+
+
+.sq-location {
+    margin-top: 5px;
+
+    color: #ffffff;
+
+    font-size: 25px;
+
+    font-weight: 720;
+
+    letter-spacing: -0.025em;
+}
+
+
+.sq-meta {
+    margin-top: 8px;
+
+    color: var(--sq-muted);
+
+    font-size: 13px;
+}
+
+
+.sq-badge-row {
+    display: flex;
+
+    flex-wrap: wrap;
+
+    gap: 8px;
+
+    margin-top: 12px;
+}
+
+
+.sq-badge {
+    display: inline-flex;
+
+    align-items: center;
+
+    padding: 6px 10px;
+
+    border-radius: 999px;
+
+    color: #a9dff6;
+
+    background:
+        rgba(34, 193, 246, 0.08);
+
+    border:
+        1px solid rgba(34, 193, 246, 0.25);
+
+    font-size: 11px;
+
+    font-weight: 750;
+
+    letter-spacing: 0.045em;
+
+    text-transform: uppercase;
+}
+
+
+/* =========================================================
+   SECTION LABEL
+========================================================= */
+
+.sq-section-label {
+    margin-bottom: -7px;
+
+    color: var(--sq-cyan);
+
+    font-size: 11px;
+
+    font-weight: 800;
+
+    letter-spacing: 0.13em;
+
+    text-transform: uppercase;
+}
+
+
+/* =========================================================
+   METRIC CARDS
+========================================================= */
+
+div[data-testid="stMetric"] {
+    min-height: 88px;
+
+    padding: 0.85rem 1rem;
+
+    border:
+        1px solid var(--sq-border);
+
+    border-radius:
+        var(--sq-radius);
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(14, 34, 49, 0.90),
+            rgba(9, 25, 36, 0.90)
+        );
+
+    box-shadow:
+        0 10px 26px
+        rgba(0, 0, 0, 0.08);
+}
+
+
+div[data-testid="stMetricLabel"] {
+    color: var(--sq-muted);
+}
+
+
+div[data-testid="stMetricValue"] {
+    color: var(--sq-text);
+}
+
+
+/* =========================================================
+   INPUTS
+========================================================= */
+
+div[data-baseweb="input"] > div {
+    background:
+        rgba(
+            7,
+            19,
+            28,
+            0.92
+        ) !important;
+
+    border-color:
+        var(--sq-border) !important;
+}
+
+
+div[data-testid="stDateInput"] input,
+div[data-testid="stTextInput"] input {
+    color:
+        var(--sq-text) !important;
+}
+
+
+/* =========================================================
+   BUTTONS
+========================================================= */
+
+div[data-testid="stButton"]
+button[kind="primary"],
+div[data-testid="stFormSubmitButton"]
+button[kind="primary"] {
+
+    width: 100%;
+
+    min-height: 46px;
+
+    border: 0;
+
+    border-radius:
+        var(--sq-radius-sm);
+
+    background:
+        linear-gradient(
+            135deg,
+            #087da8,
+            #17a8d6
+        );
+
+    color: white;
+
+    font-weight: 750;
+
+    box-shadow:
+        0 8px 24px
+        rgba(8, 157, 204, 0.15);
+
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+
+div[data-testid="stButton"]
+button[kind="primary"]:hover,
+div[data-testid="stFormSubmitButton"]
+button[kind="primary"]:hover {
+
+    transform:
+        translateY(-1px);
+
+    box-shadow:
+        0 12px 28px
+        rgba(8, 157, 204, 0.22);
+}
+
+
+/* =========================================================
+   TABS
+========================================================= */
+
+button[data-baseweb="tab"] {
+    color: #8fa9b9;
+
+    font-weight: 650;
+}
+
+
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: var(--sq-cyan);
+}
+
+
+/* =========================================================
+   IMAGES
+========================================================= */
+
+div[data-testid="stImage"] img {
+    border-radius:
+        var(--sq-radius);
+
+    border:
+        1px solid var(--sq-border);
+
+    box-shadow:
+        0 12px 30px
+        rgba(0, 0, 0, 0.14);
+}
+
+
+/* =========================================================
+   LEGEND
+========================================================= */
+
+.sq-legend {
+    display: flex;
+
+    flex-wrap: wrap;
+
+    gap: 8px;
+
+    margin-top: 12px;
+}
+
+
+.sq-legend-item {
+    display: inline-flex;
+
+    align-items: center;
+
+    gap: 7px;
+
+    padding: 6px 10px;
+
+    border-radius: 999px;
+
+    border:
+        1px solid var(--sq-border);
+
+    color: #bdd1dc;
+
+    background:
+        rgba(8, 22, 32, 0.75);
+
+    font-size: 12px;
+}
+
+
+.sq-dot {
+    width: 8px;
+    height: 8px;
+
+    display: inline-block;
+
+    flex: 0 0 8px;
+
+    border-radius: 50%;
+}
+
+
+/* =========================================================
+   STATUS STRIP
+========================================================= */
+
+.sq-status {
+    padding: 12px 14px;
+
+    margin: 10px 0 16px;
+
+    border:
+        1px solid var(--sq-border);
+
+    border-radius:
+        var(--sq-radius-sm);
+
+    color: #adc3d0;
+
+    background:
+        rgba(11, 29, 42, 0.82);
+
+    font-size: 13px;
+
+    line-height: 1.55;
+}
+
+
+.sq-status-good {
+    border-left:
+        3px solid var(--sq-green);
+}
+
+
+.sq-status-warning {
+    border-left:
+        3px solid var(--sq-yellow);
+}
+
+
+.sq-status-danger {
+    border-left:
+        3px solid var(--sq-red);
+}
+
+
+/* =========================================================
+   CHART CONTAINER
+========================================================= */
+
+.sq-chart-title {
+    margin-top: 10px;
+
+    color: #dcecf5;
+
+    font-size: 13px;
+
+    font-weight: 700;
+}
+
+
+/* =========================================================
+   FOOTER
+========================================================= */
+
+.sq-footer {
+    margin-top: 28px;
+
+    color: #658394;
+
+    font-size: 11px;
+}
+
+
+/* =========================================================
+   DIVIDER
+========================================================= */
+
+hr {
+    margin:
+        1.8rem 0 !important;
+
+    border-color:
+        rgba(
+            121,
+            177,
+            211,
+            0.10
+        ) !important;
+}
+
+
+/* =========================================================
+   MOBILE / TABLET
+========================================================= */
+
+@media (max-width: 900px) {
+
+    .block-container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .sq-hero {
+        padding: 22px;
+    }
+
+    .sq-location {
+        font-size: 21px;
+    }
+
+    .sq-title {
+        font-size: 31px;
+    }
+}

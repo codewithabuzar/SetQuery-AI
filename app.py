@@ -1,5 +1,7 @@
 from datetime import date
+from pathlib import Path
 
+import altair as alt
 import streamlit as st
 from geopy.geocoders import Nominatim
 
@@ -22,6 +24,8 @@ from report import (
 from historical_report import (
     generate_historical_summary,
     get_historical_coverage_level,
+    get_historical_source_support,
+    get_historical_support_warnings,
     answer_historical_query,
 )
 from query import answer_query
@@ -36,6 +40,8 @@ from llm import (
 # ==========================================================
 # CONFIGURATION
 # ==========================================================
+
+APP_NAME = "SETQUERY AI"
 
 CONFIDENCE_THRESHOLD = 0.60
 
@@ -57,532 +63,30 @@ st.set_page_config(
 
 
 # ==========================================================
-# PROFESSIONAL DARK GEOSPATIAL THEME
+# EXTERNAL STYLESHEET
 # ==========================================================
 
-st.markdown(
-    """
-<style>
-
-:root {
-    --bg: #06111a;
-    --panel: #0b1b27;
-
-    --border:
-        rgba(121, 177, 211, 0.16);
-
-    --cyan: #22c1f6;
-
-    --text: #edf7fd;
-    --muted: #8ca7b9;
-}
-
-
-/* =========================================================
-   APP
-========================================================= */
-
-.stApp {
-    background:
-        radial-gradient(
-            circle at 75% -10%,
-            rgba(34, 193, 246, 0.08),
-            transparent 34%
-        ),
-        linear-gradient(
-            180deg,
-            #07131d,
-            #06111a
-        );
-
-    color:
-        var(--text);
-}
-
-
-.block-container {
-    max-width:
-        1500px;
-
-    padding-top:
-        3.5rem;
-
-    padding-bottom:
-        4rem;
-}
-
-
-/* =========================================================
-   STREAMLIT CHROME
-========================================================= */
-
-#MainMenu,
-footer {
-    visibility:
-        hidden;
-}
-
-
-header[data-testid="stHeader"] {
-    background:
-        #07131d;
-
-    border-bottom:
-        1px solid
-        var(--border);
-}
-
-
-/* =========================================================
-   SIDEBAR
-========================================================= */
-
-section[data-testid="stSidebar"] {
-    background:
-        linear-gradient(
-            180deg,
-            #081722,
-            #06121b
-        );
-
-    border-right:
-        1px solid
-        var(--border);
-}
-
-
-/* =========================================================
-   BRAND
-========================================================= */
-
-.sq-brand {
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    gap:
-        12px;
-
-    margin-bottom:
-        8px;
-}
-
-
-.sq-brand-icon {
-    width:
-        42px;
-
-    height:
-        42px;
-
-    display:
-        flex;
-
-    align-items:
-        center;
-
-    justify-content:
-        center;
-
-    border-radius:
-        12px;
-
-    color:
-        var(--cyan);
-
-    background:
-        rgba(
-            34,
-            193,
-            246,
-            0.10
-        );
-
-    border:
-        1px solid
-        rgba(
-            34,
-            193,
-            246,
-            0.35
-        );
-}
-
-
-.sq-brand-name {
-    color:
-        white;
-
-    font-weight:
-        800;
-
-    letter-spacing:
-        0.07em;
-}
-
-
-.sq-brand-sub {
-    color:
-        #65b6dc;
-
-    font-size:
-        11px;
-
-    letter-spacing:
-        0.10em;
-}
-
-
-/* =========================================================
-   HERO / RESULT
-========================================================= */
-
-.sq-hero,
-.sq-result {
-    padding:
-        22px 24px;
-
-    border:
-        1px solid
-        var(--border);
-
-    border-radius:
-        16px;
-
-    background:
-        linear-gradient(
-            135deg,
-            rgba(13, 32, 46, 0.94),
-            rgba(9, 25, 36, 0.92)
-        );
-
-    margin-bottom:
-        20px;
-}
-
-
-.sq-eyebrow {
-    color:
-        var(--cyan);
-
-    font-size:
-        11px;
-
-    font-weight:
-        800;
-
-    letter-spacing:
-        0.12em;
-
-    text-transform:
-        uppercase;
-}
-
-
-.sq-title {
-    margin-top:
-        6px;
-
-    color:
-        #f4faff;
-
-    font-size:
-        clamp(
-            28px,
-            4vw,
-            44px
-        );
-
-    font-weight:
-        760;
-
-    line-height:
-        1.1;
-}
-
-
-.sq-location {
-    margin-top:
-        6px;
-
-    color:
-        white;
-
-    font-size:
-        25px;
-
-    font-weight:
-        720;
-}
-
-
-.sq-meta {
-    margin-top:
-        8px;
-
-    color:
-        var(--muted);
-
-    font-size:
-        14px;
-}
-
-
-.sq-mode {
-    display:
-        inline-flex;
-
-    margin-top:
-        12px;
-
-    padding:
-        6px 10px;
-
-    border-radius:
-        999px;
-
-    border:
-        1px solid
-        rgba(
-            34,
-            193,
-            246,
-            0.32
-        );
-
-    background:
-        rgba(
-            34,
-            193,
-            246,
-            0.08
-        );
-
-    color:
-        #75d9ff;
-
-    font-size:
-        11px;
-
-    font-weight:
-        800;
-
-    letter-spacing:
-        0.06em;
-
-    text-transform:
-        uppercase;
-}
-
-
-/* =========================================================
-   SECTION LABEL
-========================================================= */
-
-.sq-section {
-    color:
-        var(--cyan);
-
-    font-size:
-        11px;
-
-    font-weight:
-        800;
-
-    letter-spacing:
-        0.12em;
-
-    text-transform:
-        uppercase;
-
-    margin-bottom:
-        -7px;
-}
-
-
-/* =========================================================
-   METRICS
-========================================================= */
-
-div[data-testid="stMetric"] {
-    min-height:
-        88px;
-
-    padding:
-        0.85rem 1rem;
-
-    border:
-        1px solid
-        var(--border);
-
-    border-radius:
-        13px;
-
-    background:
-        linear-gradient(
-            145deg,
-            rgba(14, 34, 49, 0.88),
-            rgba(9, 25, 36, 0.88)
-        );
-}
-
-
-/* =========================================================
-   IMAGES
-========================================================= */
-
-div[data-testid="stImage"] img {
-    border-radius:
-        13px;
-
-    border:
-        1px solid
-        var(--border);
-}
-
-
-/* =========================================================
-   BUTTONS
-========================================================= */
-
-div[data-testid="stButton"]
-button[kind="primary"],
-div[data-testid="stFormSubmitButton"]
-button[kind="primary"] {
-
-    width:
-        100%;
-
-    min-height:
-        46px;
-
-    border:
-        0;
-
-    border-radius:
-        10px;
-
-    background:
-        linear-gradient(
-            135deg,
-            #087ea9,
-            #18a8d6
-        );
-
-    color:
-        white;
-
-    font-weight:
-        750;
-}
-
-
-/* =========================================================
-   LEGEND
-========================================================= */
-
-.sq-legend {
-    display:
-        flex;
-
-    flex-wrap:
-        wrap;
-
-    gap:
-        8px;
-
-    margin-top:
-        12px;
-}
-
-
-.sq-legend-item {
-    display:
-        inline-flex;
-
-    align-items:
-        center;
-
-    gap:
-        7px;
-
-    padding:
-        6px 10px;
-
-    border:
-        1px solid
-        var(--border);
-
-    border-radius:
-        999px;
-
-    color:
-        #bcd0dc;
-
-    font-size:
-        12px;
-}
-
-
-.sq-dot {
-    display:
-        inline-block;
-
-    width:
-        8px;
-
-    height:
-        8px;
-
-    border-radius:
-        50%;
-}
-
-
-hr {
-    margin:
-        2rem 0 !important;
-
-    border-color:
-        rgba(
-            121,
-            177,
-            211,
-            0.11
-        ) !important;
-}
-
-
-/* =========================================================
-   RESPONSIVE
-========================================================= */
-
-@media (max-width: 900px) {
-
-    .block-container {
-        padding-left:
-            1rem;
-
-        padding-right:
-            1rem;
-    }
-
-    .sq-location {
-        font-size:
-            21px;
-    }
-}
-
-</style>
-""",
-    unsafe_allow_html=True,
+STYLE_PATH = (
+    Path(__file__).parent
+    / "assets"
+    / "style.css"
 )
 
 
+if STYLE_PATH.exists():
+
+    css = STYLE_PATH.read_text(
+        encoding="utf-8"
+    )
+
+    st.markdown(
+        f"<style>{css}</style>",
+        unsafe_allow_html=True,
+    )
+
+
 # ==========================================================
-# HELPERS
+# UI HELPERS
 # ==========================================================
 
 def section(
@@ -596,7 +100,7 @@ def section(
 
     st.markdown(
         (
-            '<div class="sq-section">'
+            '<div class="sq-section-label">'
             f"{label}"
             "</div>"
         ),
@@ -621,20 +125,451 @@ def sensor_text(
     Format Landsat sensor metadata.
     """
 
+    if not sensor_list:
+        return "No sensor metadata"
+
     return ", ".join(
         (
             f"{item['name']} "
-            f"({item['observations']} observations)"
+            f"({item['observations']} obs.)"
         )
         for item in sensor_list
     )
+
+
+def coverage_status_class(
+    level,
+):
+    """
+    Return UI status class for a coverage category.
+    """
+
+    if level == "GOOD":
+        return "sq-status-good"
+
+    if level in (
+        "MODERATE",
+        "LIMITED",
+    ):
+        return "sq-status-warning"
+
+    return "sq-status-danger"
+
+
+def render_status_strip(
+    text,
+    level,
+):
+    """
+    Render a styled quality/status strip.
+    """
+
+    css_class = (
+        coverage_status_class(
+            level
+        )
+    )
+
+    st.markdown(
+        (
+            f'<div class="sq-status {css_class}">'
+            f"{text}"
+            "</div>"
+        ),
+        unsafe_allow_html=True,
+    )
+
+
+# ==========================================================
+# CHART HELPERS
+# ==========================================================
+
+def modern_land_cover_chart(
+    result,
+):
+    """
+    Build grouped Before/After Modern ML land-cover chart.
+    """
+
+    values = [
+        {
+            "Class":
+                "Vegetation",
+
+            "Period":
+                "Before",
+
+            "Area":
+                result[
+                    "before_vegetation_km2"
+                ],
+        },
+
+        {
+            "Class":
+                "Vegetation",
+
+            "Period":
+                "After",
+
+            "Area":
+                result[
+                    "after_vegetation_km2"
+                ],
+        },
+
+        {
+            "Class":
+                "Built-up",
+
+            "Period":
+                "Before",
+
+            "Area":
+                result[
+                    "before_built_km2"
+                ],
+        },
+
+        {
+            "Class":
+                "Built-up",
+
+            "Period":
+                "After",
+
+            "Area":
+                result[
+                    "after_built_km2"
+                ],
+        },
+
+        {
+            "Class":
+                "Water",
+
+            "Period":
+                "Before",
+
+            "Area":
+                result[
+                    "before_water_km2"
+                ],
+        },
+
+        {
+            "Class":
+                "Water",
+
+            "Period":
+                "After",
+
+            "Area":
+                result[
+                    "after_water_km2"
+                ],
+        },
+
+        {
+            "Class":
+                "Bare",
+
+            "Period":
+                "Before",
+
+            "Area":
+                result[
+                    "before_bare_km2"
+                ],
+        },
+
+        {
+            "Class":
+                "Bare",
+
+            "Period":
+                "After",
+
+            "Area":
+                result[
+                    "after_bare_km2"
+                ],
+        },
+    ]
+
+    chart = (
+        alt.Chart(
+            alt.Data(
+                values=values
+            )
+        )
+        .mark_bar(
+            cornerRadiusTopLeft=3,
+            cornerRadiusTopRight=3,
+        )
+        .encode(
+            x=alt.X(
+                "Class:N",
+                title=None,
+                sort=[
+                    "Vegetation",
+                    "Built-up",
+                    "Water",
+                    "Bare",
+                ],
+            ),
+
+            xOffset=alt.XOffset(
+                "Period:N"
+            ),
+
+            y=alt.Y(
+                "Area:Q",
+                title="Area (km²)",
+            ),
+
+            color=alt.Color(
+                "Period:N",
+
+                scale=alt.Scale(
+                    domain=[
+                        "Before",
+                        "After",
+                    ],
+
+                    range=[
+                        "#64748b",
+                        "#22c1f6",
+                    ],
+                ),
+
+                legend=alt.Legend(
+                    orient="top",
+                    title=None,
+                ),
+            ),
+
+            tooltip=[
+                alt.Tooltip(
+                    "Class:N",
+                    title="Class",
+                ),
+
+                alt.Tooltip(
+                    "Period:N",
+                    title="Period",
+                ),
+
+                alt.Tooltip(
+                    "Area:Q",
+                    title="Area (km²)",
+                    format=".3f",
+                ),
+            ],
+        )
+        .properties(
+            height=280
+        )
+        .configure_view(
+            strokeOpacity=0
+        )
+        .configure_axis(
+            labelColor="#9fb6c5",
+            titleColor="#9fb6c5",
+            gridColor="#173244",
+            domainColor="#294657",
+            tickColor="#294657",
+        )
+        .configure_legend(
+            labelColor="#b7cbd7"
+        )
+    )
+
+    return chart
+
+
+def historical_index_chart(
+    result,
+):
+    """
+    Build grouped Before/After historical index chart.
+    """
+
+    values = [
+        {
+            "Index":
+                "NDVI",
+
+            "Period":
+                "Before",
+
+            "Value":
+                result[
+                    "before_mean_ndvi"
+                ],
+        },
+
+        {
+            "Index":
+                "NDVI",
+
+            "Period":
+                "After",
+
+            "Value":
+                result[
+                    "after_mean_ndvi"
+                ],
+        },
+
+        {
+            "Index":
+                "MNDWI",
+
+            "Period":
+                "Before",
+
+            "Value":
+                result[
+                    "before_mean_mndwi"
+                ],
+        },
+
+        {
+            "Index":
+                "MNDWI",
+
+            "Period":
+                "After",
+
+            "Value":
+                result[
+                    "after_mean_mndwi"
+                ],
+        },
+
+        {
+            "Index":
+                "NDBI",
+
+            "Period":
+                "Before",
+
+            "Value":
+                result[
+                    "before_mean_ndbi"
+                ],
+        },
+
+        {
+            "Index":
+                "NDBI",
+
+            "Period":
+                "After",
+
+            "Value":
+                result[
+                    "after_mean_ndbi"
+                ],
+        },
+    ]
+
+    chart = (
+        alt.Chart(
+            alt.Data(
+                values=values
+            )
+        )
+        .mark_bar(
+            cornerRadiusTopLeft=3,
+            cornerRadiusTopRight=3,
+        )
+        .encode(
+            x=alt.X(
+                "Index:N",
+                title=None,
+                sort=[
+                    "NDVI",
+                    "MNDWI",
+                    "NDBI",
+                ],
+            ),
+
+            xOffset=alt.XOffset(
+                "Period:N"
+            ),
+
+            y=alt.Y(
+                "Value:Q",
+                title="Mean spectral index",
+            ),
+
+            color=alt.Color(
+                "Period:N",
+
+                scale=alt.Scale(
+                    domain=[
+                        "Before",
+                        "After",
+                    ],
+
+                    range=[
+                        "#64748b",
+                        "#22c1f6",
+                    ],
+                ),
+
+                legend=alt.Legend(
+                    orient="top",
+                    title=None,
+                ),
+            ),
+
+            tooltip=[
+                alt.Tooltip(
+                    "Index:N",
+                    title="Index",
+                ),
+
+                alt.Tooltip(
+                    "Period:N",
+                    title="Period",
+                ),
+
+                alt.Tooltip(
+                    "Value:Q",
+                    title="Value",
+                    format=".3f",
+                ),
+            ],
+        )
+        .properties(
+            height=280
+        )
+        .configure_view(
+            strokeOpacity=0
+        )
+        .configure_axis(
+            labelColor="#9fb6c5",
+            titleColor="#9fb6c5",
+            gridColor="#173244",
+            domainColor="#294657",
+            tickColor="#294657",
+        )
+        .configure_legend(
+            labelColor="#b7cbd7"
+        )
+    )
+
+    return chart
 
 
 # ==========================================================
 # SESSION STATE
 # ==========================================================
 
-defaults = {
+SESSION_DEFAULTS = {
     "analysis_data":
         None,
 
@@ -649,7 +584,9 @@ defaults = {
 }
 
 
-for key, value in defaults.items():
+for key, value in (
+    SESSION_DEFAULTS.items()
+):
 
     if key not in st.session_state:
 
@@ -667,15 +604,13 @@ with st.sidebar:
     st.markdown(
         (
             '<div class="sq-brand">'
-            '<div class="sq-brand-icon">'
-            "◉"
-            "</div>"
+            '<div class="sq-brand-icon">◉</div>'
             "<div>"
             '<div class="sq-brand-name">'
             "SETQUERY AI"
             "</div>"
             '<div class="sq-brand-sub">'
-            "GEOSPATIAL INTELLIGENCE"
+            "Geospatial Intelligence"
             "</div>"
             "</div>"
             "</div>"
@@ -684,8 +619,8 @@ with st.sidebar:
     )
 
     st.caption(
-        "Automatic modern / historical "
-        "satellite analysis"
+        "Satellite change analysis across "
+        "modern and historical periods."
     )
 
     st.divider()
@@ -697,7 +632,7 @@ with st.sidebar:
     location_name = st.text_input(
         "Location",
         placeholder=(
-            "Mumbai, Delhi, London..."
+            "e.g. Mumbai, Maharashtra, India"
         ),
     )
 
@@ -740,21 +675,34 @@ with st.sidebar:
     ):
 
         st.info(
-            "Mode: Modern ML\n\n"
-            "Sentinel-2 + Dynamic World"
+            "MODERN ML\n\n"
+            "Sentinel-2 + Dynamic World "
+            "Temporal Consensus"
         )
 
     else:
 
         st.info(
-            "Mode: Historical Spectral\n\n"
-            "Landsat comparison"
+            "HISTORICAL SPECTRAL\n\n"
+            "Landsat · NDVI · MNDWI · NDBI"
         )
+
+    st.caption(
+        "Selected dates are composite target dates, "
+        "not exact satellite acquisition dates."
+    )
 
     run_clicked = st.button(
         "RUN SATELLITE ANALYSIS",
         type="primary",
         use_container_width=True,
+    )
+
+    st.divider()
+
+    st.caption(
+        "Area-level satellite estimates · "
+        "Not surveyed ground truth"
     )
 
 
@@ -764,8 +712,8 @@ with st.sidebar:
 
 if run_clicked:
 
-    # Do not display old results when a new
-    # request fails.
+    # Clear old results before a new request.
+    # A failed request must never display stale results.
     st.session_state.analysis_data = (
         None
     )
@@ -785,7 +733,7 @@ if run_clicked:
     if not location_name.strip():
 
         st.error(
-            "Enter a location."
+            "Enter a location before running analysis."
         )
 
     else:
@@ -812,7 +760,8 @@ if run_clicked:
                 if resolved is None:
 
                     raise ValueError(
-                        "Location not found."
+                        "Location not found. "
+                        "Try a more specific place name."
                     )
 
                 routed = (
@@ -879,7 +828,9 @@ if run_clicked:
         except Exception as error:
 
             st.error(
-                "Unexpected analysis failure."
+                "The analysis could not be completed "
+                "because of an unexpected service or "
+                "network error."
             )
 
             with st.expander(
@@ -892,7 +843,7 @@ if run_clicked:
 
 
 # ==========================================================
-# LOAD ANALYSIS
+# LOAD ACTIVE ANALYSIS
 # ==========================================================
 
 data = (
@@ -901,7 +852,7 @@ data = (
 
 
 # ==========================================================
-# EMPTY PAGE
+# LANDING STATE
 # ==========================================================
 
 if data is None:
@@ -913,34 +864,48 @@ if data is None:
             "Satellite Change Intelligence"
             "</div>"
             '<div class="sq-title">'
-            "Analyze land change across decades."
+            "Understand land change across decades."
             "</div>"
-            '<div class="sq-meta">'
-            "Modern requests use Sentinel-2 and "
-            "Dynamic World ML. Earlier requests use "
-            "a common Landsat spectral comparison."
+            '<div class="sq-copy">'
+            "SetQuery AI automatically selects a "
+            "satellite-analysis methodology based on "
+            "the requested time period. Modern analysis "
+            "uses Sentinel-2 and Dynamic World ML; "
+            "historical analysis uses Landsat spectral "
+            "comparison."
             "</div>"
             "</div>"
         ),
         unsafe_allow_html=True,
     )
 
-    c1, c2 = st.columns(2)
-
-    c1.metric(
-        "Modern mode",
-        "Sentinel-2 + Dynamic World",
+    e1, e2, e3 = (
+        st.columns(3)
     )
 
-    c2.metric(
-        "Historical mode",
-        "Landsat Spectral",
+    e1.metric(
+        "Modern analysis",
+        "~10 m",
+        "Sentinel-2 + DW",
+    )
+
+    e2.metric(
+        "Historical analysis",
+        "~30 m",
+        "Landsat",
+    )
+
+    e3.metric(
+        "AI explanation",
+        "Grounded",
+        "Gemini + fallback",
     )
 
     st.info(
-        "Enter a study area in the sidebar. "
-        "SetQuery AI automatically selects a "
-        "compatible analysis methodology."
+        "SetQuery AI is intended for area-level "
+        "satellite analysis. It should not be used "
+        "for exact property-level or surveyed-ground-"
+        "truth claims."
     )
 
     st.stop()
@@ -966,6 +931,14 @@ location = data[
     "location"
 ]
 
+latitude = data[
+    "latitude"
+]
+
+longitude = data[
+    "longitude"
+]
+
 before = data[
     "before_date"
 ]
@@ -980,25 +953,30 @@ radius = data[
 
 
 # ==========================================================
-# RESULT HEADER
+# ACTIVE ANALYSIS HEADER
 # ==========================================================
 
 st.markdown(
     (
-        '<div class="sq-result">'
+        '<div class="sq-result-header">'
         '<div class="sq-eyebrow">'
-        "ACTIVE ANALYSIS"
+        "Active satellite analysis"
         "</div>"
         '<div class="sq-location">'
         f"{location}"
         "</div>"
         '<div class="sq-meta">'
         f"{before} → {after}"
-        f" · {radius} km radius"
+        " &nbsp;·&nbsp; "
+        f"{radius} km radius"
         "</div>"
-        '<div class="sq-mode">'
-        f"{data['mode_label']} · "
-        f"{data['approximate_resolution_m']} m"
+        '<div class="sq-badge-row">'
+        '<span class="sq-badge">'
+        f"{data['mode_label']}"
+        "</span>"
+        '<span class="sq-badge">'
+        f"~{data['approximate_resolution_m']} m"
+        "</span>"
         "</div>"
         "</div>"
     ),
@@ -1016,39 +994,38 @@ if mode == "modern_ml":
         "coverage_percent"
     ]
 
-    quality = (
+    coverage_info = (
         get_coverage_interpretation(
             coverage
         )
     )
 
-    if (
-        quality["level"]
-        == "VERY LOW"
-    ):
+    coverage_level = (
+        coverage_info[
+            "level"
+        ]
+    )
 
-        st.error(
-            "VERY LOW comparable coverage — "
-            f"{quality['description']}"
-        )
-
-    elif (
-        quality["level"]
-        == "LIMITED"
-    ):
-
-        st.warning(
-            "LIMITED comparable coverage — "
-            f"{quality['description']}"
-        )
+    render_status_strip(
+        (
+            f"{coverage_level} temporal-consensus "
+            f"coverage · {coverage:.1f}% · "
+            f"{coverage_info['description']}"
+        ),
+        coverage_level,
+    )
 
     # ------------------------------------------------------
-    # VISUALIZATION
+    # VISUALIZATION WORKSPACE
     # ------------------------------------------------------
 
     section(
-        "Visualization",
+        "Visualization workspace",
         "Satellite change viewer",
+        (
+            "Compare the temporal-consensus change map "
+            "with cloud-masked Sentinel-2 composites."
+        ),
     )
 
     (
@@ -1117,6 +1094,12 @@ if mode == "modern_ml":
             unsafe_allow_html=True,
         )
 
+        st.caption(
+            "Colored transition pixels may be enlarged "
+            "for visual clarity. Numerical statistics "
+            "use the original classification pixels."
+        )
+
     with before_tab:
 
         st.image(
@@ -1127,7 +1110,7 @@ if mode == "modern_ml":
         )
 
         st.caption(
-            f"Before target: {before} · "
+            f"Target: {before} · "
             f"{images['before_sentinel_observations']} "
             "Sentinel-2 observations"
         )
@@ -1142,53 +1125,56 @@ if mode == "modern_ml":
         )
 
         st.caption(
-            f"After target: {after} · "
+            f"Target: {after} · "
             f"{images['after_sentinel_observations']} "
             "Sentinel-2 observations"
         )
 
     with compare_tab:
 
-        c1, c2 = (
+        compare_before, compare_after = (
             st.columns(2)
         )
 
-        with c1:
+        with compare_before:
+
+            st.markdown(
+                f"### Before · {before}"
+            )
 
             st.image(
                 images[
                     "before_url"
                 ],
-                caption=(
-                    f"Before target · {before}"
-                ),
                 width="stretch",
             )
 
-        with c2:
+        with compare_after:
+
+            st.markdown(
+                f"### After · {after}"
+            )
 
             st.image(
                 images[
                     "after_url"
                 ],
-                caption=(
-                    f"After target · {after}"
-                ),
                 width="stretch",
             )
 
     # ------------------------------------------------------
-    # LAND COVER
+    # MODERN SNAPSHOT
     # ------------------------------------------------------
 
     st.divider()
 
     section(
-        "Measurements",
-        "Land-cover comparison",
+        "Confidence-aware measurements",
+        "Comparison snapshot",
         (
-            "Measurements apply only to pixels that passed "
-            "the temporal-consensus requirements in both periods."
+            "Measurements apply only to pixels that "
+            "passed the temporal-consensus requirements "
+            "in both periods."
         ),
     )
 
@@ -1222,98 +1208,138 @@ if mode == "modern_ml":
         ]
     )
 
-    m1, m2, m3, m4 = (
+    snapshot1, snapshot2, snapshot3, snapshot4 = (
         st.columns(4)
     )
 
-    m1.metric(
+    snapshot1.metric(
         "Comparable coverage",
         f"{coverage:.1f}%",
     )
 
-    m2.metric(
+    snapshot2.metric(
         "Comparable area",
         (
             f"{result['comparable_area_km2']:.2f} km²"
         ),
     )
 
-    m3.metric(
+    snapshot3.metric(
         "Vegetation net",
         f"{vegetation_change:+.3f} km²",
     )
 
-    m4.metric(
+    snapshot4.metric(
         "Built-up net",
         f"{built_change:+.3f} km²",
     )
 
-    bcol, acol = (
+    # ------------------------------------------------------
+    # MODERN CHART
+    # ------------------------------------------------------
+
+    st.markdown(
+        (
+            '<div class="sq-chart-title">'
+            "LAND-COVER PROFILE"
+            "</div>"
+        ),
+        unsafe_allow_html=True,
+    )
+
+    st.altair_chart(
+        modern_land_cover_chart(
+            result
+        ),
+        width="stretch",
+    )
+
+    # ------------------------------------------------------
+    # BEFORE / AFTER VALUES
+    # ------------------------------------------------------
+
+    before_stats, after_stats = (
         st.columns(2)
     )
 
-    with bcol:
+    with before_stats:
 
         st.markdown(
             f"### Before · {before}"
         )
 
-        st.metric(
+        bc1, bc2 = (
+            st.columns(2)
+        )
+
+        bc1.metric(
             "Vegetation",
             (
                 f"{result['before_vegetation_km2']:.2f} km²"
             ),
         )
 
-        st.metric(
+        bc2.metric(
             "Built-up",
             (
                 f"{result['before_built_km2']:.2f} km²"
             ),
         )
 
-        st.metric(
+        bc3, bc4 = (
+            st.columns(2)
+        )
+
+        bc3.metric(
             "Water",
             (
                 f"{result['before_water_km2']:.2f} km²"
             ),
         )
 
-        st.metric(
+        bc4.metric(
             "Bare ground",
             (
                 f"{result['before_bare_km2']:.2f} km²"
             ),
         )
 
-    with acol:
+    with after_stats:
 
         st.markdown(
             f"### After · {after}"
         )
 
-        st.metric(
+        ac1, ac2 = (
+            st.columns(2)
+        )
+
+        ac1.metric(
             "Vegetation",
             (
                 f"{result['after_vegetation_km2']:.2f} km²"
             ),
         )
 
-        st.metric(
+        ac2.metric(
             "Built-up",
             (
                 f"{result['after_built_km2']:.2f} km²"
             ),
         )
 
-        st.metric(
+        ac3, ac4 = (
+            st.columns(2)
+        )
+
+        ac3.metric(
             "Water",
             (
                 f"{result['after_water_km2']:.2f} km²"
             ),
         )
 
-        st.metric(
+        ac4.metric(
             "Bare ground",
             (
                 f"{result['after_bare_km2']:.2f} km²"
@@ -1322,8 +1348,8 @@ if mode == "modern_ml":
 
     st.caption(
         "Coverage is not classification accuracy. "
-        "Net differences refer only to the comparable "
-        "high-confidence subset."
+        "Net differences and explicit transitions are "
+        "different measurements."
     )
 
     # ------------------------------------------------------
@@ -1333,8 +1359,12 @@ if mode == "modern_ml":
     st.divider()
 
     section(
-        "Transitions",
-        "High-confidence transitions",
+        "Change matrix",
+        "Detected transitions",
+        (
+            "Selected explicit before-to-after "
+            "land-cover transitions."
+        ),
     )
 
     t1, t2, t3 = (
@@ -1382,10 +1412,10 @@ if mode == "modern_ml":
 
     summary = (
         generate_analysis_summary(
-            location,
-            before,
-            after,
-            result,
+            location=location,
+            before_date=before,
+            after_date=after,
+            result=result,
         )
     )
 
@@ -1400,30 +1430,92 @@ else:
         "coverage_percent"
     ]
 
-    quality = (
+    coverage_level = (
         get_historical_coverage_level(
             coverage
         )
     )
 
-    st.warning(
-        "Historical Spectral mode does not use "
-        "Dynamic World classification. NDVI, MNDWI "
-        "and NDBI are spectral indicators rather than "
-        "direct land-cover area measurements."
+    source_support = (
+        get_historical_source_support(
+            result
+        )
     )
 
-    if quality == "VERY LOW":
+    render_status_strip(
+        (
+            f"{coverage_level} comparable spatial "
+            f"coverage · {coverage:.1f}%. "
+            "Historical mode measures spectral indices "
+            "rather than Dynamic World land-cover classes."
+        ),
+        coverage_level,
+    )
 
-        st.error(
-            "Comparable Landsat coverage is very low. "
-            "Broad area-level conclusions are not "
-            "supported."
+    # ------------------------------------------------------
+    # HISTORICAL SOURCE SUPPORT
+    # ------------------------------------------------------
+
+    section(
+        "Data support",
+        "Landsat source observations",
+        (
+            "Spatial coverage and temporal source support "
+            "are different concepts. Neither is accuracy."
+        ),
+    )
+
+    support1, support2, support3 = (
+        st.columns(3)
+    )
+
+    support1.metric(
+        "Spatial coverage",
+        f"{coverage:.1f}%",
+        coverage_level,
+    )
+
+    support2.metric(
+        "BEFORE source support",
+        source_support[
+            "before_level"
+        ],
+        (
+            f"{source_support['before_count']} "
+            "observation(s)"
+        ),
+    )
+
+    support3.metric(
+        "AFTER source support",
+        source_support[
+            "after_level"
+        ],
+        (
+            f"{source_support['after_count']} "
+            "observation(s)"
+        ),
+    )
+
+    support_warnings = (
+        get_historical_support_warnings(
+            result
+        )
+    )
+
+    for warning in (
+        support_warnings
+    ):
+
+        st.warning(
+            warning
         )
 
     # ------------------------------------------------------
     # HISTORICAL IMAGERY
     # ------------------------------------------------------
+
+    st.divider()
 
     section(
         "Historical imagery",
@@ -1435,9 +1527,9 @@ else:
     )
 
     (
-        before_tab,
-        after_tab,
-        compare_tab,
+        historical_before_tab,
+        historical_after_tab,
+        historical_compare_tab,
     ) = st.tabs(
         [
             "BEFORE",
@@ -1446,7 +1538,7 @@ else:
         ]
     )
 
-    with before_tab:
+    with historical_before_tab:
 
         st.image(
             images[
@@ -1464,7 +1556,7 @@ else:
             )
         )
 
-    with after_tab:
+    with historical_after_tab:
 
         st.image(
             images[
@@ -1482,38 +1574,40 @@ else:
             )
         )
 
-    with compare_tab:
+    with historical_compare_tab:
 
-        c1, c2 = (
+        historical_before, historical_after = (
             st.columns(2)
         )
 
-        with c1:
+        with historical_before:
+
+            st.markdown(
+                f"### Before · {before}"
+            )
 
             st.image(
                 images[
                     "before_url"
                 ],
-                caption=(
-                    f"Before · {before}"
-                ),
                 width="stretch",
             )
 
-        with c2:
+        with historical_after:
+
+            st.markdown(
+                f"### After · {after}"
+            )
 
             st.image(
                 images[
                     "after_url"
                 ],
-                caption=(
-                    f"After · {after}"
-                ),
                 width="stretch",
             )
 
     # ------------------------------------------------------
-    # SPECTRAL MEASUREMENTS
+    # HISTORICAL SPECTRAL ANALYSIS
     # ------------------------------------------------------
 
     st.divider()
@@ -1522,9 +1616,9 @@ else:
         "Spectral measurements",
         "Historical comparison",
         (
-            "Mean index values are calculated only "
-            "where valid Landsat pixels are available "
-            "in both periods."
+            "Mean index values are calculated only where "
+            "valid Landsat pixels are available in both "
+            "periods."
         ),
     )
 
@@ -1533,8 +1627,10 @@ else:
     )
 
     h1.metric(
-        "Comparable coverage",
-        f"{coverage:.1f}%",
+        "Comparable area",
+        (
+            f"{result['comparable_area_km2']:.2f} km²"
+        ),
     )
 
     h2.metric(
@@ -1558,11 +1654,27 @@ else:
         ),
     )
 
-    before_indices, after_indices = (
+    st.markdown(
+        (
+            '<div class="sq-chart-title">'
+            "SPECTRAL INDEX PROFILE"
+            "</div>"
+        ),
+        unsafe_allow_html=True,
+    )
+
+    st.altair_chart(
+        historical_index_chart(
+            result
+        ),
+        width="stretch",
+    )
+
+    historical_values_before, historical_values_after = (
         st.columns(2)
     )
 
-    with before_indices:
+    with historical_values_before:
 
         st.markdown(
             f"### Before · {before}"
@@ -1589,7 +1701,7 @@ else:
             ),
         )
 
-    with after_indices:
+    with historical_values_after:
 
         st.markdown(
             f"### After · {after}"
@@ -1619,10 +1731,12 @@ else:
     st.caption(
         "NDVI is vegetation-related, MNDWI is "
         "water-related, and NDBI is built/bare-related. "
-        "These are spectral indicators, not direct "
-        "categorical area measurements."
+        "These indices are not direct categorical "
+        "land-cover area measurements."
     )
 
+    # Existing engine warnings:
+    # Landsat 7, cross-sensor effects, NDBI limitation, etc.
     for warning in result.get(
         "warnings",
         [],
@@ -1634,16 +1748,16 @@ else:
 
     summary = (
         generate_historical_summary(
-            location,
-            before,
-            after,
-            result,
+            location=location,
+            before_date=before,
+            after_date=after,
+            result=result,
         )
     )
 
 
 # ==========================================================
-# SUMMARY
+# DETERMINISTIC ANALYSIS SUMMARY
 # ==========================================================
 
 st.divider()
@@ -1651,6 +1765,10 @@ st.divider()
 section(
     "Grounded interpretation",
     "SetQuery AI analysis",
+    (
+        "Generated deterministically from the measured "
+        "analysis results."
+    ),
 )
 
 st.info(
@@ -1668,8 +1786,8 @@ section(
     "Grounded Q&A",
     "Ask SetQuery AI",
     (
-        "Gemini receives only the structured measurements "
-        "for the active analysis mode. A deterministic "
+        "Gemini receives only structured measurements "
+        "from the active analysis. A deterministic local "
         "fallback remains available."
     ),
 )
@@ -1681,9 +1799,9 @@ with st.form(
 ):
 
     question = st.text_input(
-        "Question",
+        "Question about this analysis",
         placeholder=(
-            "What changed in this analysis?"
+            "e.g. What are the most important changes?"
         ),
     )
 
@@ -1697,7 +1815,7 @@ with st.form(
 
 
 # ==========================================================
-# PROCESS Q&A
+# PROCESS AI QUESTION
 # ==========================================================
 
 if (
@@ -1776,12 +1894,14 @@ if (
 
         try:
 
-            answer = ask_gemini(
-                question=question,
-                result=result,
-                location=location,
-                before_date=before,
-                after_date=after,
+            answer = (
+                ask_gemini(
+                    question=question,
+                    result=result,
+                    location=location,
+                    before_date=before,
+                    after_date=after,
+                )
             )
 
             st.session_state.ai_source = (
@@ -1797,9 +1917,11 @@ if (
             LLMConfigurationError,
         ) as error:
 
-            answer = answer_query(
-                question,
-                result,
+            answer = (
+                answer_query(
+                    question,
+                    result,
+                )
             )
 
             st.session_state.ai_source = (
@@ -1812,9 +1934,11 @@ if (
 
         except Exception as error:
 
-            answer = answer_query(
-                question,
-                result,
+            answer = (
+                answer_query(
+                    question,
+                    result,
+                )
             )
 
             st.session_state.ai_source = (
@@ -1831,7 +1955,7 @@ if (
 
 
 # ==========================================================
-# DISPLAY AI RESPONSE
+# AI RESPONSE
 # ==========================================================
 
 if st.session_state.ai_answer:
@@ -1863,7 +1987,7 @@ if st.session_state.ai_answer:
 
         st.warning(
             "Gemini unavailable — showing the "
-            "historical deterministic grounded fallback."
+            "historical deterministic fallback."
         )
 
         if st.session_state.ai_status:
@@ -1876,7 +2000,7 @@ if st.session_state.ai_answer:
 
         st.warning(
             "Gemini unavailable — showing the "
-            "local grounded fallback."
+            "local deterministic fallback."
         )
 
         if st.session_state.ai_status:
@@ -1891,56 +2015,128 @@ if st.session_state.ai_answer:
 
 
 # ==========================================================
-# METADATA
+# TECHNICAL METADATA
 # ==========================================================
 
 st.divider()
 
 with st.expander(
-    "Analysis metadata & limitations"
+    "Analysis metadata & methodology"
 ):
 
-    st.write(
-        f"Mode: `{data['mode_label']}`"
+    metadata_left, metadata_right = (
+        st.columns(2)
     )
 
-    st.write(
-        f"Method: `{data['method']}`"
-    )
-
-    st.write(
-        "Approximate spatial resolution: "
-        f"`{data['approximate_resolution_m']} m`"
-    )
-
-    st.write(
-        f"Latitude: `{data['latitude']:.5f}`"
-    )
-
-    st.write(
-        f"Longitude: `{data['longitude']:.5f}`"
-    )
-
-    st.write(
-        f"Requested radius: `{radius} km`"
-    )
-
-    st.write(
-        f"Before target date: `{before}`"
-    )
-
-    st.write(
-        f"After target date: `{after}`"
-    )
-
-    if mode == "historical_spectral":
+    with metadata_left:
 
         st.markdown(
-            "#### Landsat sensors"
+            "#### Request"
         )
 
         st.write(
-            "Before: "
+            f"Mode: `{data['mode_label']}`"
+        )
+
+        st.write(
+            f"Method: `{data['method']}`"
+        )
+
+        st.write(
+            "Approximate spatial resolution: "
+            f"`{data['approximate_resolution_m']} m`"
+        )
+
+        st.write(
+            f"Latitude: `{latitude:.5f}`"
+        )
+
+        st.write(
+            f"Longitude: `{longitude:.5f}`"
+        )
+
+        st.write(
+            f"Radius: `{radius} km`"
+        )
+
+    with metadata_right:
+
+        st.markdown(
+            "#### Timing"
+        )
+
+        st.write(
+            f"Before target: `{before}`"
+        )
+
+        st.write(
+            f"After target: `{after}`"
+        )
+
+        if result.get(
+            "date_separation_days"
+        ) is not None:
+
+            st.write(
+                "Target-date separation: "
+                f"`{result['date_separation_days']} days`"
+            )
+
+
+    if mode == "modern_ml":
+
+        st.markdown(
+            "#### Dynamic World temporal consensus"
+        )
+
+        st.write(
+            "Per-observation probability threshold: "
+            f"`{result.get('confidence_threshold', 0.60) * 100:.0f}%`"
+        )
+
+        st.write(
+            "Minimum confident observations: "
+            f"`{result.get('min_confident_observations', 2)}`"
+        )
+
+        st.write(
+            "Minimum confidence frequency: "
+            f"`{result.get('min_confidence_frequency', 0.50) * 100:.0f}%`"
+        )
+
+        st.write(
+            "Minimum dominant-class agreement: "
+            f"`{result.get('min_temporal_consensus', 0.60) * 100:.0f}%`"
+        )
+
+        st.write(
+            "Dynamic World observations before: "
+            f"`{result['before_observations']}`"
+        )
+
+        st.write(
+            "Dynamic World observations after: "
+            f"`{result['after_observations']}`"
+        )
+
+        st.write(
+            "Sentinel-2 observations before: "
+            f"`{images['before_sentinel_observations']}`"
+        )
+
+        st.write(
+            "Sentinel-2 observations after: "
+            f"`{images['after_sentinel_observations']}`"
+        )
+
+    else:
+
+        st.markdown(
+            "#### Landsat source metadata"
+        )
+
+        st.write(
+            "Before sensors: "
             + sensor_text(
                 result[
                     "before_sensors"
@@ -1949,7 +2145,7 @@ with st.expander(
         )
 
         st.write(
-            "After: "
+            "After sensors: "
             + sensor_text(
                 result[
                     "after_sensors"
@@ -1957,60 +2153,41 @@ with st.expander(
             )
         )
 
-        st.markdown(
-            "#### Historical-mode limitations"
+        st.write(
+            "BEFORE source support: "
+            f"`{source_support['before_level']}`"
         )
 
         st.write(
-            "Historical mode compares spectral indices "
-            "rather than Dynamic World land-cover classes."
+            "AFTER source support: "
+            f"`{source_support['after_level']}`"
         )
 
-        st.write(
-            "Different Landsat generations can have "
-            "spectral bandpass differences that influence "
-            "absolute index values."
-        )
-
-        st.write(
-            "NDBI responds to built and bare surfaces and "
-            "must not be interpreted as exact built-up area."
-        )
-
-    else:
-
-        st.markdown(
-            "#### Modern-mode observations"
-        )
-
-        st.write(
-            "Dynamic World before: "
-            f"`{result['before_observations']}`"
-        )
-
-        st.write(
-            "Dynamic World after: "
-            f"`{result['after_observations']}`"
-        )
-
-        st.write(
-            "Sentinel-2 before: "
-            f"`{images['before_sentinel_observations']}`"
-        )
-
-        st.write(
-            "Sentinel-2 after: "
-            f"`{images['after_sentinel_observations']}`"
-        )
 
     st.markdown(
         """
-#### General interpretation boundaries
+#### Interpretation boundaries
 
-- Results are satellite-derived estimates rather than surveyed ground truth.
-- Target dates represent composite centers rather than exact acquisition dates.
 - Comparable coverage is not classification accuracy.
-- The system is intended for area-level analysis.
-- It should not claim exact property-level changes or exact causes.
+- Target dates are composite centers, not necessarily exact acquisition dates.
+- Results are satellite-derived estimates rather than surveyed ground truth.
+- Modern transition-map enlargement is visualization-only; numerical statistics use original pixels.
+- Historical NDVI, MNDWI and NDBI are spectral indicators rather than direct categorical area measurements.
+- The application is intended for area-level analysis rather than exact property-level change detection.
 """
     )
+
+
+# ==========================================================
+# FOOTER
+# ==========================================================
+
+st.markdown(
+    (
+        '<div class="sq-footer">'
+        "SETQUERY AI · Sentinel-2 · Dynamic World · "
+        "Landsat · Grounded AI Analysis"
+        "</div>"
+    ),
+    unsafe_allow_html=True,
+)
