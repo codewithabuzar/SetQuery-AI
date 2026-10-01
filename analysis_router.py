@@ -1,15 +1,20 @@
 from datetime import date, datetime
 
 from analysis import (
-    analyze_area,
-    get_satellite_images,
-    get_change_map,
+    prepare_modern_analysis,
+    analyze_prepared_area,
+    get_prepared_satellite_images,
+    get_prepared_change_map,
 )
 from historical_analysis import (
     analyze_historical_area,
     get_historical_satellite_images,
 )
 
+
+# ==========================================================
+# ANALYSIS MODE BOUNDARY
+# ==========================================================
 
 # Conservative application boundary for the current
 # Sentinel-2 SR + Dynamic World workflow.
@@ -23,10 +28,12 @@ MODERN_MODE_START = date(
 )
 
 
+# ==========================================================
+# DATE HELPER
+# ==========================================================
+
 def _parse_date(value):
-    """
-    Normalize a date value.
-    """
+    """Normalize a date value."""
 
     if isinstance(value, datetime):
         return value.date()
@@ -39,6 +46,10 @@ def _parse_date(value):
         "%Y-%m-%d",
     ).date()
 
+
+# ==========================================================
+# ROUTING
+# ==========================================================
 
 def choose_analysis_mode(
     before_date,
@@ -71,6 +82,10 @@ def choose_analysis_mode(
     return "historical_spectral"
 
 
+# ==========================================================
+# ROUTED ANALYSIS
+# ==========================================================
+
 def run_routed_analysis(
     latitude,
     longitude,
@@ -81,6 +96,10 @@ def run_routed_analysis(
 ):
     """
     Run the appropriate SetQuery analysis methodology.
+
+    Modern mode prepares its shared Earth Engine context
+    once and reuses it for statistics, Sentinel-2 imagery
+    and Change Map generation.
     """
 
     mode = choose_analysis_mode(
@@ -88,32 +107,41 @@ def run_routed_analysis(
         after_date,
     )
 
+    # ------------------------------------------------------
+    # MODERN
+    # ------------------------------------------------------
+
     if mode == "modern_ml":
 
-        result = analyze_area(
-            latitude=latitude,
-            longitude=longitude,
-            before_date=before_date,
-            after_date=after_date,
-            radius_km=radius_km,
-            confidence_threshold=confidence_threshold,
+        context = (
+            prepare_modern_analysis(
+                latitude=latitude,
+                longitude=longitude,
+                before_date=before_date,
+                after_date=after_date,
+                radius_km=radius_km,
+                confidence_threshold=(
+                    confidence_threshold
+                ),
+            )
         )
 
-        images = get_satellite_images(
-            latitude=latitude,
-            longitude=longitude,
-            before_date=before_date,
-            after_date=after_date,
-            radius_km=radius_km,
+        result = (
+            analyze_prepared_area(
+                context
+            )
         )
 
-        change_map = get_change_map(
-            latitude=latitude,
-            longitude=longitude,
-            before_date=before_date,
-            after_date=after_date,
-            radius_km=radius_km,
-            confidence_threshold=confidence_threshold,
+        images = (
+            get_prepared_satellite_images(
+                context
+            )
+        )
+
+        change_map = (
+            get_prepared_change_map(
+                context
+            )
         )
 
         return {
@@ -138,6 +166,10 @@ def run_routed_analysis(
             "change_map":
                 change_map,
         }
+
+    # ------------------------------------------------------
+    # HISTORICAL
+    # ------------------------------------------------------
 
     historical_result = (
         analyze_historical_area(
