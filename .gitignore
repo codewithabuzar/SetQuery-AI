@@ -5,3 +5,4 @@ __pycache__/
 .streamlit/
 app_backup.py
 analysis_before_consensus.py
+venv_clean/
