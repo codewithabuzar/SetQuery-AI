@@ -1,750 +1,1687 @@
-/* =========================================================
-   SETQUERY DESIGN SYSTEM — v2
-   Professional dark UI · CSS-only motion & depth
-   ========================================================= */
+
 
 :root {
-  /* ---- Surfaces ---- */
-  --bg: #0a0a0f;
-  --bg-sidebar: #0d0d12;
-  --surface-1: #13131a;
-  --surface-2: #17171f;
-  --surface-3: #1c1c24;
-  --surface-4: #202029;
+    --bg: #0a0a0f;
+    --sidebar: #0d0d12;
 
-  /* ---- Borders ---- */
-  --border: rgba(255, 255, 255, 0.07);
-  --border-strong: rgba(255, 255, 255, 0.12);
-  --border-hover: rgba(255, 255, 255, 0.16);
+    --surface-1: #13131a;
+    --surface-2: #17171f;
+    --surface-3: #1c1c24;
 
-  /* ---- Text ---- */
-  --text: #f5f5f7;
-  --text-secondary: #a0a0ac;
-  --text-tertiary: #777783;
-  --text-disabled: #52525b;
+    --border: rgba(255, 255, 255, 0.07);
+    --border-strong: rgba(255, 255, 255, 0.11);
 
-  /* ---- Accent ---- */
-  --accent: #ef4444;
-  --accent-hover: #f45a5a;
-  --accent-dark: #d63842;
-  --accent-glow: rgba(239, 68, 68, 0.16);
+    --text: #f5f5f7;
+    --text-secondary: #a0a0ac;
+    --text-tertiary: #74747f;
 
-  /* ---- Semantic data colors ---- */
-  --green: #4ade80;
-  --blue: #60a5fa;
-  --amber: #fbbf24;
-  --bare: #9ca3af;
+    --accent: #ef4444;
+    --accent-hover: #f05252;
+    --accent-dark: #d93d45;
 
-  --danger: #ef4444;
-  --warning: #d6a84b;
-  --success: #4d9a6d;
+    --green: #4ade80;
+    --blue: #60a5fa;
+    --amber: #fbbf24;
+    --bare: #9ca3af;
 
-  /* ---- Radius scale ---- */
-  --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
+    --success: #4d9a6d;
+    --warning: #d6a84b;
+    --danger: #ef4444;
 
-  /* ---- Spacing scale ---- */
-  --space-1: 8px;
-  --space-2: 16px;
-  --space-3: 24px;
-  --space-4: 32px;
-  --space-6: 48px;
-  --space-8: 64px;
+    --radius-sm: 8px;
+    --radius-md: 10px;
+    --radius-lg: 12px;
 
-  /* ---- Motion ---- */
-  --ease: cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --dur-fast: 140ms;
-  --dur-base: 220ms;
-  --dur-slow: 340ms;
-
-  /* ---- Elevation system (layered, soft, Fluent-style) ---- */
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.18);
-  --shadow-md: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.22);
-  --shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.4), 0 16px 40px rgba(0, 0, 0, 0.3);
-  --shadow-glow: 0 0 0 3px var(--accent-glow);
+    --ease:
+        cubic-bezier(
+            0.4,
+            0,
+            0.2,
+            1
+        );
 }
+
 
 /* =========================================================
-   RESET / BASE
-   ========================================================= */
+   BASE
+========================================================= */
 
-html, body, [class*="css"] {
-  font-family: Inter, "Segoe UI Variable", "Segoe UI", -apple-system,
-    BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+html,
+body,
+[class*="css"] {
+    font-family:
+        Inter,
+        "Segoe UI Variable",
+        "Segoe UI",
+        -apple-system,
+        BlinkMacSystemFont,
+        Roboto,
+        Helvetica,
+        Arial,
+        sans-serif;
 }
 
-html { scroll-behavior: smooth; }
 
-html, body, .stApp {
-  background: var(--bg);
-  color: var(--text);
+html,
+body,
+.stApp {
+    background:
+        var(--bg);
+
+    color:
+        var(--text);
 }
 
-.stApp { min-height: 100vh; }
 
-::selection {
-  background: var(--accent);
-  color: #fff;
+.stApp {
+    min-height:
+        100vh;
 }
+
 
 .block-container {
-  width: 100%;
-  max-width: 1248px;
-  margin: 0 auto;
-  padding: 48px 32px 64px;
-  animation: sq-enter var(--dur-slow) var(--ease) both;
+    width:
+        100%;
+
+    max-width:
+        1248px;
+
+    margin:
+        0 auto;
+
+    padding-top:
+        48px;
+
+    padding-right:
+        32px;
+
+    padding-bottom:
+        64px;
+
+    padding-left:
+        32px;
 }
 
-/* =========================================================
-   STREAMLIT CHROME
-   ========================================================= */
 
-#MainMenu, footer { visibility: hidden; }
+/* =========================================================
+   STREAMLIT DEVELOPMENT CHROME
+========================================================= */
+
+#MainMenu,
+footer {
+    visibility:
+        hidden;
+}
+
 
 header[data-testid="stHeader"] {
-  background: rgba(10, 10, 15, 0.82);
-  backdrop-filter: blur(10px) saturate(140%);
-  -webkit-backdrop-filter: blur(10px) saturate(140%);
-  border-bottom: 1px solid var(--border);
-  box-shadow: none;
+    background:
+        rgba(
+            10,
+            10,
+            15,
+            0.96
+        );
+
+    border-bottom:
+        1px solid
+        var(--border);
+
+    box-shadow:
+        none;
 }
+
+
+/*
+The local Streamlit Deploy control is intentionally kept.
+It is development chrome, not part of the SetQuery UI.
+*/
+
 
 /* =========================================================
-   MOTION PRIMITIVES
-   ========================================================= */
+   ENTRANCE MOTION
+========================================================= */
 
 @keyframes sq-enter {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+
+    from {
+        opacity:
+            0;
+
+        transform:
+            translateY(5px);
+    }
+
+    to {
+        opacity:
+            1;
+
+        transform:
+            translateY(0);
+    }
 }
 
-@keyframes sq-shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+
+.block-container {
+    animation:
+        sq-enter
+        300ms
+        var(--ease)
+        both;
 }
 
-@keyframes sq-spin {
-  to { transform: rotate(360deg); }
+
+@media (
+    prefers-reduced-motion: reduce
+) {
+
+    *,
+    *::before,
+    *::after {
+        animation-duration:
+            0.01ms !important;
+
+        animation-iteration-count:
+            1 !important;
+
+        transition-duration:
+            0.01ms !important;
+
+        scroll-behavior:
+            auto !important;
+    }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
 
 /* =========================================================
    TYPOGRAPHY
-   ========================================================= */
+========================================================= */
 
-h1, h2, h3, h4 {
-  color: var(--text) !important;
-  margin-top: 0;
-  letter-spacing: -0.02em;
+h1,
+h2,
+h3,
+h4 {
+    color:
+        var(--text) !important;
+
+    margin-top:
+        0;
+
+    letter-spacing:
+        -0.02em;
 }
+
 
 h1 {
-  font-size: clamp(40px, 4vw, 54px) !important;
-  line-height: 1.06 !important;
-  font-weight: 600 !important;
-  letter-spacing: -0.035em !important;
+    font-size:
+        clamp(
+            38px,
+            4vw,
+            52px
+        ) !important;
+
+    line-height:
+        1.07 !important;
+
+    font-weight:
+        600 !important;
+
+    letter-spacing:
+        -0.035em !important;
 }
 
-h2 { font-size: 26px !important; line-height: 1.2 !important; font-weight: 600 !important; }
-h3 { font-size: 17px !important; line-height: 1.3 !important; font-weight: 600 !important; }
+
+h2 {
+    font-size:
+        24px !important;
+
+    line-height:
+        1.2 !important;
+
+    font-weight:
+        600 !important;
+}
+
+
+h3 {
+    font-size:
+        17px !important;
+
+    line-height:
+        1.3 !important;
+
+    font-weight:
+        600 !important;
+}
+
 
 p {
-  color: var(--text-secondary);
-  font-size: 15px;
-  line-height: 1.65;
+    color:
+        var(--text-secondary);
+
+    font-size:
+        15px;
+
+    line-height:
+        1.65;
 }
 
-small, .stCaption {
-  color: var(--text-tertiary) !important;
-  font-size: 12px !important;
-  line-height: 1.55 !important;
+
+small,
+.stCaption {
+    color:
+        var(--text-tertiary) !important;
+
+    font-size:
+        12px !important;
+
+    line-height:
+        1.55 !important;
 }
 
-.block-container [data-testid="stMarkdownContainer"] p { max-width: 760px; }
 
-/* Tabular figures for all numeric displays — prevents digit jitter */
-div[data-testid="stMetricValue"],
-.sq-meta, .sq-location {
-  font-variant-numeric: tabular-nums;
+.block-container
+[data-testid="stMarkdownContainer"]
+p {
+    max-width:
+        760px;
 }
+
 
 /* =========================================================
    LANDING PAGE
-   ========================================================= */
+========================================================= */
 
 .sq-home-brand {
-  color: var(--text);
-  font-size: 15px;
-  font-weight: 650;
-  letter-spacing: -0.025em;
+    color:
+        var(--text);
+
+    font-size:
+        15px;
+
+    line-height:
+        1;
+
+    font-weight:
+        650;
+
+    letter-spacing:
+        -0.025em;
 }
 
-.sq-home-space { height: 96px; }
-.sq-home-button-space { height: 16px; }
+
+.sq-home-space {
+    height:
+        96px;
+}
+
+
+.sq-home-button-space {
+    height:
+        16px;
+}
+
 
 /* =========================================================
    SIDEBAR
-   ========================================================= */
+========================================================= */
 
 section[data-testid="stSidebar"] {
-  width: 340px !important;
-  background: var(--bg-sidebar);
-  border-right: 1px solid var(--border);
+    width:
+        340px !important;
+
+    background:
+        var(--sidebar);
+
+    border-right:
+        1px solid
+        var(--border);
 }
+
 
 section[data-testid="stSidebar"] > div {
-  padding: 24px 20px 32px;
+    padding-top:
+        24px;
+
+    padding-right:
+        20px;
+
+    padding-left:
+        20px;
 }
 
-.sq-brand { margin-bottom: 32px; }
+
+.sq-brand {
+    margin-bottom:
+        32px;
+}
+
 
 .sq-brand-name {
-  color: var(--text);
-  font-size: 19px;
-  font-weight: 650;
-  letter-spacing: -0.03em;
+    color:
+        var(--text);
+
+    font-size:
+        19px;
+
+    line-height:
+        1;
+
+    font-weight:
+        650;
+
+    letter-spacing:
+        -0.03em;
 }
+
 
 .sq-brand-sub {
-  margin-top: 6px;
-  color: var(--text-tertiary);
-  font-size: 11px;
-  line-height: 1.4;
+    margin-top:
+        6px;
+
+    color:
+        var(--text-tertiary);
+
+    font-size:
+        11px;
+
+    line-height:
+        1.4;
 }
 
-.sq-sidebar-section,
-.sq-section-label {
-  color: var(--text-tertiary);
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+
+.sq-sidebar-section {
+    margin-bottom:
+        16px;
+
+    color:
+        var(--text-tertiary);
+
+    font-size:
+        11px;
+
+    line-height:
+        1.3;
+
+    font-weight:
+        600;
+
+    text-transform:
+        uppercase;
+
+    letter-spacing:
+        0.08em;
 }
 
-.sq-sidebar-section { margin-bottom: 16px; }
-.sq-section-label { margin-bottom: 6px; }
 
 .sq-sidebar-rule {
-  height: 1px;
-  margin: 24px 0;
-  background: linear-gradient(90deg, var(--border), transparent);
+    height:
+        1px;
+
+    margin:
+        24px
+        0;
+
+    background:
+        var(--border);
 }
 
-.sq-workspace-spacer { height: 48px; }
 
 /* =========================================================
-   FORM LABELS
-   ========================================================= */
+   EMPTY WORKSPACE
+========================================================= */
 
-label, div[data-testid="stWidgetLabel"] {
-  color: var(--text-secondary) !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
+.sq-workspace-spacer {
+    height:
+        48px;
 }
 
+
 /* =========================================================
-   TEXT / DATE / SELECT INPUTS
-   ========================================================= */
+   SECTION LABELS
+========================================================= */
+
+.sq-section-label {
+    margin-bottom:
+        6px;
+
+    color:
+        var(--text-tertiary);
+
+    font-size:
+        11px;
+
+    line-height:
+        1.3;
+
+    font-weight:
+        600;
+
+    text-transform:
+        uppercase;
+
+    letter-spacing:
+        0.08em;
+}
+
+
+/* =========================================================
+   INPUT LABELS
+========================================================= */
+
+label,
+div[data-testid="stWidgetLabel"] {
+    color:
+        var(--text-secondary) !important;
+
+    font-size:
+        13px !important;
+
+    font-weight:
+        500 !important;
+}
+
+
+/* =========================================================
+   TEXT / DATE INPUTS
+========================================================= */
 
 div[data-baseweb="input"] > div,
-div[data-baseweb="base-input"],
-div[data-baseweb="select"] > div {
-  min-height: 42px;
-  background: var(--surface-3) !important;
-  border: 1px solid var(--border-strong) !important;
-  border-radius: var(--radius-md) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.015) !important;
-  transition: border-color var(--dur-base) var(--ease),
-    box-shadow var(--dur-base) var(--ease),
-    background var(--dur-base) var(--ease);
+div[data-baseweb="base-input"] {
+    min-height:
+        42px;
+
+    background:
+        var(--surface-3) !important;
+
+    border:
+        1px solid
+        var(--border-strong) !important;
+
+    border-radius:
+        var(--radius-md) !important;
+
+    box-shadow:
+        inset
+        0
+        1px
+        0
+        rgba(
+            255,
+            255,
+            255,
+            0.015
+        ) !important;
+
+    transition:
+        border-color
+        180ms
+        var(--ease),
+        box-shadow
+        180ms
+        var(--ease),
+        background
+        180ms
+        var(--ease);
 }
+
 
 div[data-baseweb="input"] > div:hover,
-div[data-baseweb="base-input"]:hover,
-div[data-baseweb="select"] > div:hover {
-  border-color: var(--border-hover) !important;
+div[data-baseweb="base-input"]:hover {
+    border-color:
+        rgba(
+            255,
+            255,
+            255,
+            0.16
+        ) !important;
 }
 
+
 div[data-baseweb="input"] > div:focus-within,
-div[data-baseweb="base-input"]:focus-within,
-div[data-baseweb="select"] > div:focus-within {
-  background: var(--surface-4) !important;
-  border-color: var(--accent) !important;
-  box-shadow: var(--shadow-glow) !important;
+div[data-baseweb="base-input"]:focus-within {
+    background:
+        #1d1d25 !important;
+
+    border-color:
+        var(--accent) !important;
+
+    box-shadow:
+        0
+        0
+        0
+        3px
+        rgba(
+            239,
+            68,
+            68,
+            0.12
+        ) !important;
 }
+
 
 div[data-testid="stTextInput"] input,
 div[data-testid="stDateInput"] input {
-  color: var(--text) !important;
-  caret-color: var(--accent);
+    color:
+        var(--text) !important;
+
+    caret-color:
+        var(--accent);
 }
 
-div[data-testid="stTextInput"] input::placeholder {
-  color: #676773 !important;
-  opacity: 1;
+
+div[data-testid="stTextInput"]
+input::placeholder {
+    color:
+        #676773 !important;
+
+    opacity:
+        1;
 }
 
-/* Dropdown menu (location suggestions, selects) */
-ul[data-testid="stSelectboxVirtualDropdown"],
-div[role="listbox"] {
-  background: var(--surface-2) !important;
-  border: 1px solid var(--border-strong) !important;
-  border-radius: var(--radius-md) !important;
-  box-shadow: var(--shadow-lg) !important;
-  overflow: hidden;
-}
-
-li[role="option"]:hover,
-li[aria-selected="true"] {
-  background: var(--surface-3) !important;
-}
 
 /* =========================================================
    SLIDER
-   ========================================================= */
+========================================================= */
 
-div[data-testid="stSlider"] { padding-top: 2px; }
-
-div[data-testid="stSlider"] [data-baseweb="slider"] > div:nth-child(2) {
-  background: var(--accent) !important;
+div[data-testid="stSlider"] {
+    padding-top:
+        2px;
 }
 
-div[data-testid="stSlider"] div[role="slider"] {
-  width: 16px !important;
-  height: 16px !important;
-  background: var(--accent) !important;
-  border: 2px solid #ff7777 !important;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45) !important;
-  transition: transform var(--dur-fast) var(--ease),
-    box-shadow var(--dur-fast) var(--ease);
+
+div[data-testid="stSlider"]
+div[role="slider"] {
+    width:
+        16px !important;
+
+    height:
+        16px !important;
+
+    background:
+        var(--accent) !important;
+
+    border:
+        2px solid
+        #ff7777 !important;
+
+    box-shadow:
+        0
+        2px
+        6px
+        rgba(
+            0,
+            0,
+            0,
+            0.4
+        ) !important;
+
+    transition:
+        transform
+        160ms
+        var(--ease),
+        box-shadow
+        160ms
+        var(--ease);
 }
 
-div[data-testid="stSlider"] div[role="slider"]:hover {
-  transform: scale(1.1);
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5), var(--shadow-glow) !important;
+
+div[data-testid="stSlider"]
+div[role="slider"]:hover {
+    transform:
+        scale(1.06);
+
+    box-shadow:
+        0
+        3px
+        8px
+        rgba(
+            0,
+            0,
+            0,
+            0.45
+        ) !important;
 }
 
-div[data-testid="stSlider"] div[role="slider"]:active {
-  transform: scale(0.96);
-}
-
-/* =========================================================
-   CHECKBOX / TOGGLE / RADIO
-   ========================================================= */
-
-div[data-testid="stCheckbox"] label span:first-child,
-div[data-testid="stRadio"] label span:first-child {
-  background: var(--surface-3) !important;
-  border: 1px solid var(--border-strong) !important;
-  transition: all var(--dur-fast) var(--ease);
-}
-
-div[data-baseweb="checkbox"] input:checked + div {
-  background: var(--accent) !important;
-  border-color: var(--accent) !important;
-}
 
 /* =========================================================
    BUTTONS
-   ========================================================= */
+========================================================= */
 
 div[data-testid="stButton"] button,
 div[data-testid="stFormSubmitButton"] button {
-  min-height: 42px;
-  padding: 0 18px;
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  font-weight: 600;
-  box-shadow: none;
-  transition: transform var(--dur-base) var(--ease),
-    box-shadow var(--dur-base) var(--ease),
-    background var(--dur-base) var(--ease),
-    border-color var(--dur-base) var(--ease);
+    min-height:
+        42px;
+
+    padding:
+        0
+        18px;
+
+    border-radius:
+        var(--radius-md);
+
+    font-size:
+        14px;
+
+    font-weight:
+        600;
+
+    transition:
+        transform
+        180ms
+        var(--ease),
+        box-shadow
+        180ms
+        var(--ease),
+        background
+        180ms
+        var(--ease),
+        border-color
+        180ms
+        var(--ease);
 }
+
 
 /* Primary */
-div[data-testid="stButton"] button[kind="primary"],
-div[data-testid="stFormSubmitButton"] button[kind="primary"] {
-  background: linear-gradient(180deg, #f05252, #df3d46);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #fff;
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.18), 0 6px 14px rgba(239, 68, 68, 0.18);
+
+div[data-testid="stButton"]
+button[kind="primary"],
+div[data-testid="stFormSubmitButton"]
+button[kind="primary"] {
+    background:
+        linear-gradient(
+            180deg,
+            #f05252,
+            #df3d46
+        );
+
+    border:
+        1px solid
+        rgba(
+            255,
+            255,
+            255,
+            0.08
+        );
+
+    color:
+        #ffffff;
+
+    box-shadow:
+        0
+        1px
+        2px
+        rgba(
+            0,
+            0,
+            0,
+            0.32
+        ),
+        0
+        4px
+        10px
+        rgba(
+            239,
+            68,
+            68,
+            0.12
+        );
 }
 
-div[data-testid="stButton"] button[kind="primary"]:hover,
-div[data-testid="stFormSubmitButton"] button[kind="primary"]:hover {
-  background: linear-gradient(180deg, var(--accent-hover), #e64049);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.18), 0 10px 22px rgba(239, 68, 68, 0.26);
+
+div[data-testid="stButton"]
+button[kind="primary"]:hover,
+div[data-testid="stFormSubmitButton"]
+button[kind="primary"]:hover {
+    background:
+        linear-gradient(
+            180deg,
+            #f45a5a,
+            #e64049
+        );
+
+    transform:
+        translateY(-1px);
+
+    box-shadow:
+        0
+        1px
+        2px
+        rgba(
+            0,
+            0,
+            0,
+            0.32
+        ),
+        0
+        6px
+        14px
+        rgba(
+            239,
+            68,
+            68,
+            0.18
+        );
 }
 
-div[data-testid="stButton"] button[kind="primary"]:active,
-div[data-testid="stFormSubmitButton"] button[kind="primary"]:active {
-  transform: translateY(1px);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 3px 8px rgba(239, 68, 68, 0.16);
+
+div[data-testid="stButton"]
+button[kind="primary"]:active,
+div[data-testid="stFormSubmitButton"]
+button[kind="primary"]:active {
+    transform:
+        translateY(1px);
+
+    box-shadow:
+        0
+        1px
+        2px
+        rgba(
+            0,
+            0,
+            0,
+            0.28
+        );
 }
+
 
 /* Secondary */
-div[data-testid="stButton"] button[kind="secondary"] {
-  background: var(--surface-2);
-  border: 1px solid var(--border-strong);
-  color: var(--text-secondary);
+
+div[data-testid="stButton"]
+button[kind="secondary"] {
+    background:
+        transparent;
+
+    border:
+        1px solid
+        var(--border-strong);
+
+    color:
+        var(--text-secondary);
+
+    box-shadow:
+        none;
 }
 
-div[data-testid="stButton"] button[kind="secondary"]:hover {
-  background: var(--surface-3);
-  border-color: var(--border-hover);
-  color: var(--text);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+
+div[data-testid="stButton"]
+button[kind="secondary"]:hover {
+    background:
+        var(--surface-1);
+
+    border-color:
+        rgba(
+            255,
+            255,
+            255,
+            0.15
+        );
+
+    color:
+        var(--text);
+
+    transform:
+        translateY(-1px);
 }
 
-div[data-testid="stButton"] button[kind="secondary"]:active {
-  transform: translateY(0);
-}
 
 /* Disabled */
+
 button:disabled {
-  background: #24242b !important;
-  border-color: var(--border) !important;
-  color: var(--text-disabled) !important;
-  transform: none !important;
-  box-shadow: none !important;
-  cursor: not-allowed !important;
+    background:
+        #24242b !important;
+
+    border-color:
+        var(--border) !important;
+
+    color:
+        #6f6f78 !important;
+
+    transform:
+        none !important;
+
+    box-shadow:
+        none !important;
+
+    cursor:
+        not-allowed !important;
 }
+
 
 /* =========================================================
    RESULT HEADER
-   ========================================================= */
+========================================================= */
 
 .sq-result-header {
-  margin-bottom: 24px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid var(--border);
+    margin-bottom:
+        24px;
+
+    padding-bottom:
+        24px;
+
+    border-bottom:
+        1px solid
+        var(--border);
 }
+
 
 .sq-location {
-  max-width: 920px;
-  color: var(--text);
-  font-size: clamp(26px, 3vw, 34px);
-  line-height: 1.16;
-  font-weight: 600;
-  letter-spacing: -0.03em;
+    max-width:
+        960px;
+
+    color:
+        var(--text);
+
+    font-size:
+        clamp(
+            24px,
+            2.4vw,
+            30px
+        );
+
+    line-height:
+        1.2;
+
+    font-weight:
+        600;
+
+    letter-spacing:
+        -0.025em;
 }
+
 
 .sq-meta {
-  margin-top: 10px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1.5;
+    margin-top:
+        10px;
+
+    color:
+        var(--text-secondary);
+
+    font-size:
+        13px;
+
+    line-height:
+        1.5;
 }
 
+
 .sq-result-context {
-  margin-top: 6px;
-  color: var(--text-tertiary);
-  font-size: 11px;
-  line-height: 1.5;
+    margin-top:
+        6px;
+
+    color:
+        var(--text-tertiary);
+
+    font-size:
+        11px;
+
+    line-height:
+        1.5;
 }
+
 
 /* =========================================================
    METRIC CARDS
-   ========================================================= */
+
+   Metrics are elevated enough to establish structure but
+   remain quieter than the imagery and Change Map.
+========================================================= */
 
 div[data-testid="stMetric"] {
-  min-height: 126px;
-  padding: 24px;
-  background: linear-gradient(145deg, #16161d, #121217);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  transition: transform var(--dur-base) var(--ease),
-    border-color var(--dur-base) var(--ease),
-    box-shadow var(--dur-base) var(--ease);
+    min-height:
+        108px;
+
+    padding:
+        20px;
+
+    background:
+        var(--surface-1);
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius:
+        var(--radius-lg);
+
+    box-shadow:
+        0
+        1px
+        2px
+        rgba(
+            0,
+            0,
+            0,
+            0.24
+        );
+
+    transition:
+        background
+        180ms
+        var(--ease),
+        border-color
+        180ms
+        var(--ease);
 }
+
 
 div[data-testid="stMetric"]:hover {
-  transform: translateY(-3px);
-  border-color: var(--border-hover);
-  box-shadow: var(--shadow-lg);
+    background:
+        var(--surface-2);
+
+    border-color:
+        rgba(
+            255,
+            255,
+            255,
+            0.10
+        );
+
+    transform:
+        none;
+
+    box-shadow:
+        0
+        1px
+        2px
+        rgba(
+            0,
+            0,
+            0,
+            0.24
+        );
 }
+
+
+div[data-testid="stMetricLabel"] {
+    color:
+        var(--text-tertiary);
+}
+
 
 div[data-testid="stMetricLabel"] p {
-  color: var(--text-tertiary) !important;
-  font-size: 12px !important;
-  font-weight: 500 !important;
+    color:
+        var(--text-tertiary) !important;
+
+    font-size:
+        12px !important;
+
+    font-weight:
+        500 !important;
 }
+
 
 div[data-testid="stMetricValue"] {
-  color: var(--text);
-  font-size: clamp(27px, 2.2vw, 34px);
-  line-height: 1.15;
-  font-weight: 600;
-  letter-spacing: -0.035em;
+    color:
+        var(--text);
+
+    font-size:
+        clamp(
+            25px,
+            2vw,
+            31px
+        );
+
+    line-height:
+        1.15;
+
+    font-weight:
+        600;
+
+    letter-spacing:
+        -0.03em;
 }
 
-div[data-testid="stMetricDelta"] { margin-top: 5px; font-size: 11px; }
+
+div[data-testid="stMetricDelta"] {
+    margin-top:
+        4px;
+
+    font-size:
+        11px;
+}
+
 
 /* =========================================================
-   STATUS / COVERAGE BANNER
-   ========================================================= */
+   STATUS / COVERAGE
+========================================================= */
 
 .sq-status {
-  margin: 0 0 32px;
-  padding: 13px 16px;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  font-size: 13px;
-  line-height: 1.55;
-  transition: border-color var(--dur-base) var(--ease);
+    margin:
+        0
+        0
+        32px;
+
+    padding:
+        13px
+        16px;
+
+    background:
+        var(--surface-1);
+
+    border:
+        1px solid
+        var(--border);
+
+    border-left-width:
+        3px;
+
+    border-radius:
+        var(--radius-sm);
+
+    color:
+        var(--text-secondary);
+
+    font-size:
+        13px;
+
+    line-height:
+        1.55;
 }
 
-.sq-status-good    { border-left-color: var(--success); }
-.sq-status-warning { border-left-color: var(--warning); }
-.sq-status-danger  { border-left-color: var(--danger); }
+
+.sq-status-good {
+    border-left-color:
+        var(--success);
+}
+
+
+.sq-status-warning {
+    border-left-color:
+        var(--warning);
+}
+
+
+.sq-status-danger {
+    border-left-color:
+        var(--danger);
+}
+
 
 /* =========================================================
    TABS
-   ========================================================= */
+========================================================= */
 
 div[data-baseweb="tab-list"] {
-  gap: 28px;
-  border-bottom: 1px solid var(--border);
+    gap:
+        28px;
+
+    border-bottom:
+        1px solid
+        var(--border);
 }
+
 
 button[data-baseweb="tab"] {
-  position: relative;
-  padding: 10px 0 12px;
-  color: var(--text-tertiary);
-  font-size: 13px;
-  font-weight: 500;
-  background: transparent !important;
-  transition: color var(--dur-base) var(--ease);
+    position:
+        relative;
+
+    padding:
+        10px
+        0
+        12px;
+
+    color:
+        var(--text-tertiary);
+
+    font-size:
+        13px;
+
+    font-weight:
+        500;
+
+    background:
+        transparent !important;
+
+    transition:
+        color
+        200ms
+        var(--ease);
 }
 
-button[data-baseweb="tab"]:hover { color: var(--text-secondary); }
-button[data-baseweb="tab"][aria-selected="true"] { color: var(--text); }
+
+button[data-baseweb="tab"]:hover {
+    color:
+        var(--text-secondary);
+}
+
+
+button[data-baseweb="tab"][aria-selected="true"] {
+    color:
+        var(--text);
+}
+
 
 div[data-baseweb="tab-highlight"] {
-  height: 2px;
-  background-color: var(--accent) !important;
-  border-radius: 2px;
-  transition: transform 280ms var(--ease), width 280ms var(--ease);
+    height:
+        2px;
+
+    background-color:
+        var(--accent) !important;
+
+    border-radius:
+        2px;
+
+    transition:
+        all
+        240ms
+        var(--ease);
 }
+
 
 /* =========================================================
-   IMAGERY / CHANGE MAP
-   ========================================================= */
+   SATELLITE IMAGERY / CHANGE MAP
+========================================================= */
 
-div[data-testid="stImage"] { margin-top: 8px; overflow: hidden; border-radius: var(--radius-lg); }
+div[data-testid="stImage"] {
+    margin-top:
+        8px;
+}
+
 
 div[data-testid="stImage"] img {
-  display: block;
-  width: 100%;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  transition: transform 400ms var(--ease);
+    display:
+        block;
+
+    width:
+        100%;
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius:
+        var(--radius-lg);
+
+    box-shadow:
+        0
+        6px
+        20px
+        rgba(
+            0,
+            0,
+            0,
+            0.20
+        );
 }
 
-div[data-testid="stImage"]:hover img { transform: scale(1.015); }
 
-/* Legend */
+/* =========================================================
+   CHANGE MAP LEGEND
+
+   These strong colors encode transition classes and are
+   deliberately separate from the interface color system.
+========================================================= */
+
 .sq-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 22px;
-  margin-top: 16px;
+    display:
+        flex;
+
+    flex-wrap:
+        wrap;
+
+    gap:
+        12px
+        22px;
+
+    margin-top:
+        16px;
 }
+
 
 .sq-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--text-secondary);
-  font-size: 11px;
-  line-height: 1.4;
+    display:
+        inline-flex;
+
+    align-items:
+        center;
+
+    gap:
+        7px;
+
+    color:
+        var(--text-secondary);
+
+    font-size:
+        11px;
+
+    line-height:
+        1.4;
 }
+
 
 .sq-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  flex: 0 0 8px;
-  border-radius: 2px;
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.05);
+    display:
+        inline-block;
+
+    width:
+        8px;
+
+    height:
+        8px;
+
+    flex:
+        0
+        0
+        8px;
+
+    border-radius:
+        2px;
 }
 
-.sq-dot-veg   { background: var(--green); }
-.sq-dot-built { background: var(--amber); }
-.sq-dot-water { background: var(--blue); }
-.sq-dot-bare  { background: var(--bare); }
 
 /* =========================================================
    CHARTS
-   ========================================================= */
+========================================================= */
 
-div[data-testid="stVegaLiteChart"],
-div[data-testid="stPlotlyChart"] {
-  margin-top: 16px;
-  padding: var(--space-2);
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+div[data-testid="stVegaLiteChart"] {
+    margin-top:
+        16px;
+
+    padding:
+        8px
+        0;
 }
 
-div[data-testid="stVegaLiteChart"] > div,
-div[data-testid="stPlotlyChart"] > div {
-  background: transparent !important;
+
+div[data-testid="stVegaLiteChart"] > div {
+    background:
+        transparent !important;
 }
+
 
 /* =========================================================
-   ALERTS / EXPANDERS / FORMS
-   ========================================================= */
+   FORMS
+========================================================= */
+
+div[data-testid="stForm"] {
+    padding:
+        0;
+
+    background:
+        transparent;
+
+    border:
+        0;
+}
+
+
+/* =========================================================
+   ALERTS
+========================================================= */
 
 div[data-testid="stAlert"] {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: none;
+    border:
+        1px solid
+        var(--border);
+
+    border-radius:
+        var(--radius-md);
+
+    box-shadow:
+        none;
 }
 
-div[data-testid="stExpander"] {
-  overflow: hidden;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  transition: border-color var(--dur-base) var(--ease);
-}
-
-div[data-testid="stExpander"]:hover { border-color: var(--border-hover); }
-
-div[data-testid="stForm"] { padding: 0; background: transparent; border: 0; }
 
 /* =========================================================
-   SKELETON LOADER (optional use during analysis)
-   ========================================================= */
+   EXPANDERS
+========================================================= */
 
-.sq-skeleton {
-  position: relative;
-  overflow: hidden;
-  background: var(--surface-2);
-  border-radius: var(--radius-md);
+div[data-testid="stExpander"] {
+    overflow:
+        hidden;
+
+    background:
+        var(--surface-1);
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius:
+        var(--radius-md);
+
+    box-shadow:
+        none;
+
+    transition:
+        border-color
+        180ms
+        var(--ease);
 }
 
-.sq-skeleton::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg,
-    transparent, rgba(255, 255, 255, 0.04), transparent);
-  background-size: 200% 100%;
-  animation: sq-shimmer 1.4s linear infinite;
+
+div[data-testid="stExpander"]:hover {
+    border-color:
+        rgba(
+            255,
+            255,
+            255,
+            0.10
+        );
 }
+
+
+/* =========================================================
+   DIVIDERS
+========================================================= */
+
+hr {
+    margin:
+        40px
+        0 !important;
+
+    border-color:
+        var(--border) !important;
+}
+
 
 /* =========================================================
    SPINNER
-   ========================================================= */
+========================================================= */
 
-div[data-testid="stSpinner"] { color: var(--text-secondary); }
-div[data-testid="stSpinner"] svg { color: var(--accent) !important; }
+div[data-testid="stSpinner"] {
+    color:
+        var(--text-secondary);
+}
+
+
+div[data-testid="stSpinner"] svg {
+    color:
+        var(--accent) !important;
+}
+
 
 /* =========================================================
-   DIVIDERS / FOOTER
-   ========================================================= */
-
-hr {
-  margin: 48px 0 !important;
-  border-color: var(--border) !important;
-}
+   FOOTER
+========================================================= */
 
 .sq-footer {
-  margin-top: 56px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border);
-  color: var(--text-tertiary);
-  font-size: 10px;
-  line-height: 1.5;
+    margin-top:
+        48px;
+
+    padding-top:
+        20px;
+
+    border-top:
+        1px solid
+        var(--border);
+
+    color:
+        var(--text-tertiary);
+
+    font-size:
+        10px;
+
+    line-height:
+        1.5;
 }
+
 
 /* =========================================================
-   ACCESSIBILITY
-   ========================================================= */
+   ACCESSIBLE FOCUS
+========================================================= */
 
 button:focus-visible,
-input:focus-visible,
-[role="slider"]:focus-visible {
-  outline: 2px solid rgba(239, 68, 68, 0.7);
-  outline-offset: 2px;
+input:focus-visible {
+    outline:
+        2px solid
+        rgba(
+            239,
+            68,
+            68,
+            0.72
+        );
+
+    outline-offset:
+        2px;
 }
+
 
 /* =========================================================
    SCROLLBAR
-   ========================================================= */
+========================================================= */
 
-* { scrollbar-width: thin; scrollbar-color: #34343c transparent; }
+* {
+    scrollbar-width:
+        thin;
 
-*::-webkit-scrollbar { width: 8px; height: 8px; }
-*::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb {
-  background: #34343c;
-  border: 2px solid var(--bg);
-  border-radius: 999px;
+    scrollbar-color:
+        #34343c
+        transparent;
 }
-*::-webkit-scrollbar-thumb:hover { background: #464650; }
+
+
+*::-webkit-scrollbar {
+    width:
+        8px;
+
+    height:
+        8px;
+}
+
+
+*::-webkit-scrollbar-track {
+    background:
+        transparent;
+}
+
+
+*::-webkit-scrollbar-thumb {
+    background:
+        #34343c;
+
+    border:
+        2px solid
+        var(--bg);
+
+    border-radius:
+        999px;
+}
+
+
+*::-webkit-scrollbar-thumb:hover {
+    background:
+        #464650;
+}
+
 
 /* =========================================================
-   RESPONSIVE
-   ========================================================= */
+   1280PX
+========================================================= */
 
-@media (max-width: 1280px) {
-  .block-container { max-width: 1120px; padding: 48px 28px 64px; }
-  section[data-testid="stSidebar"] { width: 320px !important; }
-  div[data-testid="stMetric"] { padding: 20px; }
+@media (
+    max-width: 1280px
+) {
+
+    .block-container {
+        max-width:
+            1120px;
+
+        padding-right:
+            28px;
+
+        padding-left:
+            28px;
+    }
+
+
+    section[data-testid="stSidebar"] {
+        width:
+            320px !important;
+    }
+
+
+    div[data-testid="stMetric"] {
+        padding:
+            18px;
+    }
 }
 
-@media (max-width: 900px) {
-  .block-container { padding: 32px 20px 48px; }
-  h1 { font-size: clamp(36px, 8vw, 46px) !important; }
-  h2 { font-size: 23px !important; }
-  .sq-home-space { height: 64px; }
-  .sq-workspace-spacer { height: 24px; }
-  .sq-location { font-size: 26px; }
-  div[data-baseweb="tab-list"] { gap: 20px; }
-  .sq-legend { gap: 10px 16px; }
-  div[data-testid="stMetric"] { min-height: 110px; padding: 18px; }
+
+/* =========================================================
+   TABLET
+========================================================= */
+
+@media (
+    max-width: 900px
+) {
+
+    .block-container {
+        padding-top:
+            32px;
+
+        padding-right:
+            20px;
+
+        padding-bottom:
+            48px;
+
+        padding-left:
+            20px;
+    }
+
+
+    h1 {
+        font-size:
+            clamp(
+                35px,
+                8vw,
+                44px
+            ) !important;
+    }
+
+
+    h2 {
+        font-size:
+            22px !important;
+    }
+
+
+    .sq-home-space {
+        height:
+            64px;
+    }
+
+
+    .sq-workspace-spacer {
+        height:
+            24px;
+    }
+
+
+    .sq-location {
+        font-size:
+            25px;
+    }
+
+
+    div[data-baseweb="tab-list"] {
+        gap:
+            20px;
+    }
+
+
+    .sq-legend {
+        gap:
+            10px
+            16px;
+    }
+
+
+    div[data-testid="stMetric"] {
+        min-height:
+            102px;
+
+        padding:
+            17px;
+    }
 }
 
-@media (max-width: 600px) {
-  .block-container { padding: 24px 16px 40px; }
-  h1 { font-size: 34px !important; }
-  h2 { font-size: 22px !important; }
-  .sq-home-space { height: 48px; }
-  .sq-home-button-space { height: 8px; }
-  .sq-workspace-spacer { height: 16px; }
-  .sq-brand-name { font-size: 17px; }
-  .sq-location { font-size: 23px; }
-  div[data-testid="stMetric"] { min-height: 100px; padding: 16px; }
-  div[data-testid="stMetricValue"] { font-size: 26px; }
-  hr { margin: 40px 0 !important; }
-}
 
-@media print {
-  section[data-testid="stSidebar"],
-  div[data-testid="stButton"] { display: none !important; }
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (
+    max-width: 600px
+) {
+
+    .block-container {
+        padding-top:
+            24px;
+
+        padding-right:
+            16px;
+
+        padding-bottom:
+            40px;
+
+        padding-left:
+            16px;
+    }
+
+
+    h1 {
+        font-size:
+            33px !important;
+    }
+
+
+    h2 {
+        font-size:
+            21px !important;
+    }
+
+
+    .sq-home-space {
+        height:
+            48px;
+    }
+
+
+    .sq-home-button-space {
+        height:
+            8px;
+    }
+
+
+    .sq-workspace-spacer {
+        height:
+            16px;
+    }
+
+
+    .sq-brand-name {
+        font-size:
+            17px;
+    }
+
+
+    .sq-location {
+        font-size:
+            22px;
+    }
+
+
+    div[data-testid="stMetric"] {
+        min-height:
+            96px;
+
+        padding:
+            16px;
+    }
+
+
+    div[data-testid="stMetricValue"] {
+        font-size:
+            25px;
+    }
+
+
+    hr {
+        margin:
+            32px
+            0 !important;
+    }
 }
