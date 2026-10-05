@@ -3,9 +3,13 @@ from pathlib import Path
 import time
 
 import altair as alt
-import requests 
+import folium
+import requests
 import streamlit as st
+
+from folium.plugins import Fullscreen
 from geopy.geocoders import Nominatim
+from streamlit_folium import st_folium
 
 from analysis import AnalysisValidationError, AnalysisDataError
 from historical_analysis import HistoricalValidationError, HistoricalDataError
@@ -407,6 +411,132 @@ def render_preview(preview):
 
 
 # ==========================================================
+# STUDY AREA MAP
+# ==========================================================
+
+def build_study_area_map(
+    latitude,
+    longitude,
+    radius_km,
+    location_label=None,
+):
+    """
+    Build an interactive geographic-context map.
+
+    The basemap is for geographic orientation only.
+    SetQuery analysis continues to use Earth Engine
+    Sentinel-2 / Landsat data.
+    """
+
+    latitude = float(latitude)
+    longitude = float(longitude)
+    radius_km = float(radius_km)
+
+    # A useful initial zoom based on the requested radius.
+    if radius_km <= 1:
+        zoom_start = 15
+    elif radius_km <= 2:
+        zoom_start = 14
+    elif radius_km <= 5:
+        zoom_start = 12
+    elif radius_km <= 10:
+        zoom_start = 11
+    else:
+        zoom_start = 10
+
+    map_object = folium.Map(
+    location=[
+        latitude,
+        longitude,
+    ],
+    zoom_start=zoom_start,
+    tiles=None,
+    control_scale=True,
+    prefer_canvas=True,
+    scrollWheelZoom=False,
+)
+
+    # Neutral reference basemap.
+    folium.TileLayer(
+        tiles=(
+            "https://{s}.tile.openstreetmap.org/"
+            "{z}/{x}/{y}.png"
+        ),
+        attr="© OpenStreetMap contributors",
+        name="Map",
+        overlay=False,
+        control=True,
+        max_zoom=19,
+    ).add_to(
+        map_object
+    )
+
+    # Selected location.
+    popup_text = (
+        location_label
+        if location_label
+        else "Selected analysis center"
+    )
+
+    folium.CircleMarker(
+        location=[
+            latitude,
+            longitude,
+        ],
+        radius=5,
+        color="#f5f5f7",
+        weight=2,
+        fill=True,
+        fill_color="#ef4444",
+        fill_opacity=1,
+        tooltip="Analysis center",
+        popup=popup_text,
+    ).add_to(
+        map_object
+    )
+
+    # Actual circular AOI used by the current analysis.
+    folium.Circle(
+        location=[
+            latitude,
+            longitude,
+        ],
+        radius=(
+            radius_km
+            * 1000
+        ),
+        color="#ef4444",
+        weight=2,
+        opacity=0.9,
+        fill=True,
+        fill_color="#ef4444",
+        fill_opacity=0.07,
+        tooltip=(
+            f"{radius_km:g} km analysis radius"
+        ),
+    ).add_to(
+        map_object
+    )
+
+    Fullscreen(
+        position="topright",
+        title="Fullscreen",
+        title_cancel="Exit fullscreen",
+        force_separate_button=True,
+    ).add_to(
+        map_object
+    )
+
+    folium.LayerControl(
+        position="topright",
+        collapsed=True,
+    ).add_to(
+        map_object
+    )
+
+    return map_object
+
+# ==========================================================
 # CHARTS
 # ==========================================================
 
@@ -636,6 +766,7 @@ with st.sidebar:
 # RUN ANALYSIS
 # ==========================================================
 
+
 if run_clicked:
 
     clear_analysis()
@@ -653,11 +784,8 @@ if run_clicked:
     else:
 
         try:
-
-            with st.spinner(
-                "Analyzing satellite data..."
-            ):
-
+            with st.spinner("Analyzing satellite data..."):
+                start_time = time.perf_counter()
                 routed = run_routed_analysis(
                     latitude=selected_location["latitude"],
                     longitude=selected_location["longitude"],
@@ -667,34 +795,21 @@ if run_clicked:
                     confidence_threshold=CONFIDENCE_THRESHOLD,
                 )
 
-                previews = prepare_preview_images(
-                    routed
-                )
+            elapsed = time.perf_counter() - start_time
+            print(
+                f"SetQuery Earth Engine analysis: "
+                f"{elapsed:.1f} seconds"
+            )
 
-                st.session_state.analysis_data = {
-                    "location":
-                        selected_location["address"],
-
-                    "latitude":
-                        selected_location["latitude"],
-
-                    "longitude":
-                        selected_location["longitude"],
-
-                    "radius_km":
-                        radius_km,
-
-                    "before_date":
-                        str(before_date),
-
-                    "after_date":
-                        str(after_date),
-
-                    "previews":
-                        previews,
-
-                    **routed,
-                }
+            st.session_state.analysis_data = {
+                "location": selected_location["address"],
+                "latitude": selected_location["latitude"],
+                "longitude": selected_location["longitude"],
+                "radius_km": radius_km,
+                "before_date": str(before_date),
+                "after_date": str(after_date),
+                **routed,
+            }
 
         except (
             AnalysisValidationError,
@@ -703,25 +818,12 @@ if run_clicked:
             HistoricalDataError,
             ValueError,
         ) as error:
-
-            st.error(
-                str(error)
-            )
+            st.error(str(error))
 
         except Exception as error:
-
-            st.error(
-                "Analysis could not be completed."
-            )
-
-            with st.expander(
-                "Technical details"
-            ):
-
-                st.exception(
-                    error
-                )
-
+            st.error("Analysis could not be completed.")
+            with st.expander("Technical details"):
+                st.exception(error)
 
 # ==========================================================
 # ACTIVE ANALYSIS
@@ -736,19 +838,84 @@ data = st.session_state.analysis_data
 
 if data is None:
 
-    st.markdown('<div class="sq-workspace-spacer"></div>', unsafe_allow_html=True)
-    st.title("Satellite change analysis")
+    st.markdown(
+        '<div class="sq-workspace-spacer"></div>',
+        unsafe_allow_html=True,
+    )
 
-    if st.session_state.selected_location is None:
+    st.title(
+        "Satellite change analysis"
+    )
+
+    if (
+        st.session_state.selected_location
+        is None
+    ):
+
         st.write(
-            "Search for a location in the sidebar, choose the correct match, "
-            "and set the analysis period and radius."
+            "Search for a location in the sidebar, "
+            "choose the correct match, and set the "
+            "analysis period and radius."
         )
-    else:
-        st.write("The analysis center is selected. Set the dates and radius, then run the analysis.")
-        st.caption(st.session_state.selected_location["address"])
 
-    st.caption("Sentinel-2 · Dynamic World · Landsat")
+        st.caption(
+            "Sentinel-2 · Dynamic World · Landsat"
+        )
+
+    else:
+
+        selected_location = (
+            st.session_state.selected_location
+        )
+
+        st.write(
+            "The analysis center is selected. "
+            "Set the dates and radius, then run the analysis."
+        )
+
+        st.caption(
+            selected_location[
+                "address"
+            ]
+        )
+
+        study_map = build_study_area_map(
+            latitude=(
+                selected_location[
+                    "latitude"
+                ]
+            ),
+            longitude=(
+                selected_location[
+                    "longitude"
+                ]
+            ),
+            radius_km=radius_km,
+            location_label=(
+                selected_location[
+                    "address"
+                ]
+            ),
+        )
+
+        st_folium(
+            study_map,
+            height=480,
+            use_container_width=True,
+            returned_objects=[],
+            key="study_area_map",
+        )
+
+        st.caption(
+            "Geographic context only · the outlined circle "
+            "is the current study area. Satellite analysis "
+            "uses Sentinel-2 or Landsat through Earth Engine."
+        )
+
+        st.caption(
+            "Sentinel-2 · Dynamic World · Landsat"
+        )
+
     st.stop()
 
 
@@ -781,6 +948,42 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
+# ==========================================================
+# RESULT STUDY AREA MAP
+# ==========================================================
+
+section(
+    "Study area",
+    "Geographic context",
+    (
+        "Interactive reference map showing the selected "
+        "analysis center and circular study area."
+    ),
+)
+
+result_study_map = build_study_area_map(
+    latitude=latitude,
+    longitude=longitude,
+    radius_km=radius,
+    location_label=location,
+)
+
+st_folium(
+    result_study_map,
+    height=420,
+    use_container_width=True,
+    returned_objects=[],
+    key="result_study_area_map",
+)
+
+st.caption(
+    "Basemap detail is for geographic context only. "
+    "SetQuery measurements use the satellite datasets "
+    "listed in the analysis methodology."
+)
+
+st.divider()
 
 # ==========================================================
 # MODERN RESULTS
