@@ -416,7 +416,7 @@ def _get_collection_count(
     collection,
     label,
 ):
-    """Retrieve an Earth Engine collection count."""
+    """Retrieve a single Earth Engine collection count."""
 
     try:
         return int(
@@ -432,6 +432,45 @@ def _get_collection_count(
             "Earth Engine or the network may be "
             "temporarily unavailable."
         ) from error
+
+
+def _get_combined_counts(
+    collections,
+):
+    """
+    Retrieve multiple Earth Engine collection counts using a
+    single combined request.
+
+    This replaces several separate .size().getInfo() calls
+    with one network round trip. The counted values and
+    methodology are unchanged.
+
+    collections: dict of {label: ee.ImageCollection}
+    returns: dict of {label: int}
+    """
+
+    try:
+        sizes = ee.Dictionary(
+            {
+                name: collection.size()
+                for name, collection in collections.items()
+            }
+        )
+
+        info = sizes.getInfo()
+
+    except Exception as error:
+
+        raise AnalysisDataError(
+            "Could not check Earth Engine observation "
+            "counts. Earth Engine or the network may be "
+            "temporarily unavailable."
+        ) from error
+
+    return {
+        key: int(value)
+        for key, value in info.items()
+    }
 
 
 def _observation_warnings(
@@ -827,6 +866,10 @@ def prepare_modern_analysis(
 
     This avoids rebuilding and recounting the same
     Dynamic World and Sentinel-2 collections.
+
+    Observation counts for all four collections are fetched
+    using a single combined Earth Engine request instead of
+    four separate requests.
     """
 
     request = validate_analysis_request(
@@ -851,7 +894,10 @@ def prepare_modern_analysis(
     )
 
     # ------------------------------------------------------
-    # DYNAMIC WORLD
+    # BUILD COLLECTIONS
+    #
+    # These are server-side definitions only. No network
+    # round trip happens until a value is requested below.
     # ------------------------------------------------------
 
     before_dw_collection = (
@@ -872,19 +918,62 @@ def prepare_modern_analysis(
         )
     )
 
-    before_dw_count = (
-        _get_collection_count(
-            before_dw_collection,
-            "Dynamic World BEFORE",
+    before_sentinel_collection = (
+        _build_sentinel_collection(
+            area,
+            request[
+                "before_window"
+            ],
         )
     )
 
-    after_dw_count = (
-        _get_collection_count(
-            after_dw_collection,
-            "Dynamic World AFTER",
+    after_sentinel_collection = (
+        _build_sentinel_collection(
+            area,
+            request[
+                "after_window"
+            ],
         )
     )
+
+    # ------------------------------------------------------
+    # COMBINED OBSERVATION COUNTS
+    #
+    # Previously these were four separate .getInfo() calls.
+    # They are now fetched in a single round trip.
+    # ------------------------------------------------------
+
+    counts = _get_combined_counts(
+        {
+            "before_dw":
+                before_dw_collection,
+
+            "after_dw":
+                after_dw_collection,
+
+            "before_sentinel":
+                before_sentinel_collection,
+
+            "after_sentinel":
+                after_sentinel_collection,
+        }
+    )
+
+    before_dw_count = counts[
+        "before_dw"
+    ]
+
+    after_dw_count = counts[
+        "after_dw"
+    ]
+
+    before_sentinel_count = counts[
+        "before_sentinel"
+    ]
+
+    after_sentinel_count = counts[
+        "after_sentinel"
+    ]
 
     if before_dw_count == 0:
         raise AnalysisDataError(
@@ -897,6 +986,22 @@ def prepare_modern_analysis(
             "No Dynamic World observations were found "
             "for the AFTER composite window."
         )
+
+    if before_sentinel_count == 0:
+        raise AnalysisDataError(
+            "No usable Sentinel-2 observations were found "
+            "for the BEFORE composite window."
+        )
+
+    if after_sentinel_count == 0:
+        raise AnalysisDataError(
+            "No usable Sentinel-2 observations were found "
+            "for the AFTER composite window."
+        )
+
+    # ------------------------------------------------------
+    # DYNAMIC WORLD TEMPORAL CONSENSUS
+    # ------------------------------------------------------
 
     before_consensus = (
         _build_temporal_consensus(
@@ -1028,54 +1133,6 @@ def prepare_modern_analysis(
             after_water
         )
     )
-
-    # ------------------------------------------------------
-    # SENTINEL-2
-    # ------------------------------------------------------
-
-    before_sentinel_collection = (
-        _build_sentinel_collection(
-            area,
-            request[
-                "before_window"
-            ],
-        )
-    )
-
-    after_sentinel_collection = (
-        _build_sentinel_collection(
-            area,
-            request[
-                "after_window"
-            ],
-        )
-    )
-
-    before_sentinel_count = (
-        _get_collection_count(
-            before_sentinel_collection,
-            "Sentinel-2 BEFORE",
-        )
-    )
-
-    after_sentinel_count = (
-        _get_collection_count(
-            after_sentinel_collection,
-            "Sentinel-2 AFTER",
-        )
-    )
-
-    if before_sentinel_count == 0:
-        raise AnalysisDataError(
-            "No usable Sentinel-2 observations were found "
-            "for the BEFORE composite window."
-        )
-
-    if after_sentinel_count == 0:
-        raise AnalysisDataError(
-            "No usable Sentinel-2 observations were found "
-            "for the AFTER composite window."
-        )
 
     return {
         "request":
@@ -1330,26 +1387,48 @@ def analyze_prepared_area(
         ]
     )
 
+    # --------------------------------------------------
+    # COMBINED STATS + TOTAL AREA REQUEST
+    #
+    # Previously the land-cover statistics reduceRegion
+    # and the total study-area calculation were two
+    # separate .getInfo() calls. They are now resolved
+    # with a single combined request.
+    #
+    # The total area is still computed using the exact
+    # geometric method (area.area()), not a pixel-sum
+    # approximation, so the reported value is unchanged.
+    # --------------------------------------------------
+
     try:
-        stats = (
-            stats_image
-            .reduceRegion(
-                reducer=(
-                    ee.Reducer.sum()
-                ),
-                geometry=area,
-                scale=10,
-                maxPixels=1e9,
-                tileScale=4,
-            )
-            .getInfo()
-        )
+        combined = ee.Dictionary(
+            {
+                "stats":
+                    stats_image.reduceRegion(
+                        reducer=(
+                            ee.Reducer.sum()
+                        ),
+                        geometry=area,
+                        scale=10,
+                        maxPixels=1e9,
+                        tileScale=4,
+                    ),
+
+                "total_area_km2":
+                    area
+                    .area()
+                    .divide(1e6),
+            }
+        ).getInfo()
+
+        stats = combined[
+            "stats"
+        ]
 
         total_area_km2 = float(
-            area
-            .area()
-            .divide(1e6)
-            .getInfo()
+            combined[
+                "total_area_km2"
+            ]
         )
 
     except Exception as error:
