@@ -6,6 +6,7 @@ from analysis import (
     get_prepared_satellite_images,
     get_prepared_change_map,
 )
+from burn_analysis import analyze_burn_evidence
 from historical_analysis import (
     analyze_historical_area,
     get_historical_satellite_images,
@@ -98,8 +99,8 @@ def run_routed_analysis(
     Run the appropriate SetQuery analysis methodology.
 
     Modern mode prepares its shared Earth Engine context
-    once and reuses it for statistics, Sentinel-2 imagery
-    and Change Map generation.
+    once and reuses it for statistics, Sentinel-2 imagery,
+    Change Map generation, and burn evidence.
     """
 
     mode = choose_analysis_mode(
@@ -144,6 +145,17 @@ def run_routed_analysis(
             )
         )
 
+        try:
+            burn_evidence = analyze_burn_evidence(
+                context
+            )
+        except Exception:
+            # Burn evidence is a supplementary indicator.
+            # If it fails for any reason, the core land-cover
+            # analysis above must still be returned
+            # successfully.
+            burn_evidence = None
+
         return {
             "mode":
                 "modern_ml",
@@ -165,6 +177,9 @@ def run_routed_analysis(
 
             "change_map":
                 change_map,
+
+            "burn_evidence":
+                burn_evidence,
         }
 
     # ------------------------------------------------------
@@ -213,5 +228,10 @@ def run_routed_analysis(
         # Historical mode deliberately does not fabricate
         # Dynamic World-style categorical transition maps.
         "change_map":
+            None,
+
+        # Burn evidence is currently only implemented for
+        # Modern mode.
+        "burn_evidence":
             None,
     }
