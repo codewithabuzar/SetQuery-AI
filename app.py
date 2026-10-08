@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 import time
 
@@ -14,6 +14,7 @@ from streamlit_folium import st_folium
 from analysis import AnalysisValidationError, AnalysisDataError
 from historical_analysis import HistoricalValidationError, HistoricalDataError
 from analysis_router import run_routed_analysis, choose_analysis_mode
+from trend_analysis import analyze_trend
 from report import generate_analysis_summary, get_coverage_interpretation
 from historical_report import (
     generate_historical_summary,
@@ -35,6 +36,10 @@ CONFIDENCE_THRESHOLD = 0.60
 RADIUS_MIN_KM = 1
 RADIUS_MAX_KM = 20
 RADIUS_DEFAULT_KM = 10
+
+TREND_MIN_POINTS = 2
+TREND_MAX_POINTS = 8
+TREND_MIN_DATE = date(2017, 1, 1)
 
 GEOCODER_USER_AGENT = "setquery-ai-student-project"
 GEOCODER_RESULT_LIMIT = 5
@@ -74,6 +79,7 @@ section[data-testid="stSidebar"],
 SESSION_DEFAULTS = {
     "app_view": "home",
     "analysis_data": None,
+    "trend_data": None,
     "ai_answer": None,
     "ai_source": None,
     "ai_status": None,
@@ -198,6 +204,7 @@ def open_home():
 def clear_analysis():
     """Clear current analysis and query state."""
     st.session_state.analysis_data = None
+    st.session_state.trend_data = None
     st.session_state.ai_answer = None
     st.session_state.ai_source = None
     st.session_state.ai_status = None
@@ -283,8 +290,7 @@ def perform_location_search(query):
     st.session_state.selected_location = matches[0]
 
 
-
-    # ==========================================================
+# ==========================================================
 # EARTH ENGINE PREVIEW DELIVERY
 # ==========================================================
 
@@ -445,16 +451,16 @@ def build_study_area_map(
         zoom_start = 10
 
     map_object = folium.Map(
-    location=[
-        latitude,
-        longitude,
-    ],
-    zoom_start=zoom_start,
-    tiles=None,
-    control_scale=True,
-    prefer_canvas=True,
-    scrollWheelZoom=False,
-)
+        location=[
+            latitude,
+            longitude,
+        ],
+        zoom_start=zoom_start,
+        tiles=None,
+        control_scale=True,
+        prefer_canvas=True,
+        scrollWheelZoom=False,
+    )
 
     # Neutral reference basemap.
     folium.TileLayer(
@@ -536,6 +542,7 @@ def build_study_area_map(
 
     return map_object
 
+
 # ==========================================================
 # CHARTS
 # ==========================================================
@@ -603,6 +610,75 @@ def historical_index_chart(result):
     ]
     values = _paired_values(result, mapping, "Index", "Value")
     return grouped_bar_chart(values, "Index", ["NDVI", "MNDWI", "NDBI"], "Value", "Mean spectral index")
+
+
+def trend_composition_chart(trend_data):
+    """
+    Independent per-date land-cover composition trend chart.
+
+    Each date is analyzed independently (see methodology_note).
+    Points are shown at full opacity when the date's coverage met
+    the reliability threshold, and faded when it did not, so a low-
+    support date does not visually imply the same confidence as a
+    well-supported one.
+    """
+
+    chart_rows = []
+
+    for period in trend_data["periods"]:
+        for class_name, field in [
+            ("Vegetation", "vegetation_percent_of_valid_area"),
+            ("Built-up", "built_percent_of_valid_area"),
+            ("Water", "water_percent_of_valid_area"),
+            ("Bare", "bare_percent_of_valid_area"),
+        ]:
+            chart_rows.append(
+                {
+                    "Date": period["date"],
+                    "Class": class_name,
+                    "Percent": period[field],
+                    "Reliable": period["reliable"],
+                }
+            )
+
+    base = alt.Chart(alt.Data(values=chart_rows)).encode(
+        x=alt.X("Date:T", title=None),
+        y=alt.Y("Percent:Q", title="Percent of that date's own valid area"),
+        color=alt.Color(
+            "Class:N",
+            legend=alt.Legend(orient="top", title=None),
+        ),
+    )
+
+    line = base.mark_line()
+
+    points = base.mark_circle(size=90).encode(
+        opacity=alt.condition(
+            "datum.Reliable == true",
+            alt.value(1.0),
+            alt.value(0.25),
+        ),
+        tooltip=[
+            alt.Tooltip("Date:T"),
+            alt.Tooltip("Class:N"),
+            alt.Tooltip("Percent:Q", format=".1f"),
+            alt.Tooltip("Reliable:N"),
+        ],
+    )
+
+    return (
+        (line + points)
+        .properties(height=320)
+        .configure_view(strokeOpacity=0)
+        .configure_axis(
+            labelColor="#8a9095",
+            titleColor="#8a9095",
+            gridColor="#222629",
+            domainColor="#303438",
+            tickColor="#303438",
+        )
+        .configure_legend(labelColor="#a4a9ae")
+    )
 
 
 # ==========================================================
@@ -680,6 +756,24 @@ with st.sidebar:
     st.markdown('<div class="sq-sidebar-section">Analysis</div>', unsafe_allow_html=True)
 
     # ------------------------------------------------------
+    # ANALYSIS TYPE
+    # ------------------------------------------------------
+
+    analysis_type = st.selectbox(
+        "Analysis type",
+        options=[
+            "Compare two dates",
+            "View trend over time",
+        ],
+        index=0,
+        help=(
+            "Compare two dates measures change between a Before "
+            "and After period. Trend mode measures land-cover "
+            "composition independently at several dates."
+        ),
+    )
+
+    # ------------------------------------------------------
     # LOCATION
     # ------------------------------------------------------
 
@@ -717,8 +811,59 @@ with st.sidebar:
     # DATES
     # ------------------------------------------------------
 
-    before_date = st.date_input("Before", value=date(2022, 9, 15))
-    after_date = st.date_input("After", value=date(2025, 9, 15))
+    if analysis_type == "Compare two dates":
+
+        before_date = st.date_input("Before", value=date(2022, 9, 15))
+        after_date = st.date_input("After", value=date(2025, 9, 15))
+
+    else:
+
+        st.caption(
+            "Trend mode analyzes each date independently using "
+            "Sentinel-2 + Dynamic World. Dates must be on or after "
+            f"{TREND_MIN_DATE.isoformat()} and at least 90 days apart."
+        )
+
+        trend_point_count = int(
+            st.number_input(
+                "Number of time points",
+                min_value=TREND_MIN_POINTS,
+                max_value=TREND_MAX_POINTS,
+                value=3,
+                step=1,
+            )
+        )
+
+        today = date.today()
+
+        trend_dates = []
+
+        for point_index in range(trend_point_count):
+
+            default_date = (
+                today
+                - timedelta(
+                    days=(
+                        (trend_point_count - 1 - point_index)
+                        * 365
+                    )
+                )
+            )
+
+            if default_date < TREND_MIN_DATE:
+                default_date = TREND_MIN_DATE + timedelta(
+                    days=point_index * 30
+                )
+
+            picked_date = st.date_input(
+                f"Date {point_index + 1}",
+                value=default_date,
+                min_value=TREND_MIN_DATE,
+                max_value=today,
+                key=f"trend_date_{point_index}",
+            )
+
+            trend_dates.append(picked_date)
 
     # ------------------------------------------------------
     # RADIUS
@@ -737,8 +882,11 @@ with st.sidebar:
     # MODE
     # ------------------------------------------------------
 
-    predicted_mode = choose_analysis_mode(before_date, after_date)
-    st.caption("Sentinel-2 + Dynamic World" if predicted_mode == "modern_ml" else "Landsat historical analysis")
+    if analysis_type == "Compare two dates":
+        predicted_mode = choose_analysis_mode(before_date, after_date)
+        st.caption("Sentinel-2 + Dynamic World" if predicted_mode == "modern_ml" else "Landsat historical analysis")
+    else:
+        st.caption("Sentinel-2 + Dynamic World · independent per-date analysis")
 
     # ------------------------------------------------------
     # ANALYZE
@@ -751,7 +899,10 @@ with st.sidebar:
         disabled=st.session_state.selected_location is None,
     )
 
-    if st.session_state.analysis_data is not None:
+    if (
+        st.session_state.analysis_data is not None
+        or st.session_state.trend_data is not None
+    ):
         st.button("Clear analysis", use_container_width=True, on_click=clear_analysis)
 
     st.markdown('<div class="sq-sidebar-rule"></div>', unsafe_allow_html=True)
@@ -765,7 +916,6 @@ with st.sidebar:
 # ==========================================================
 # RUN ANALYSIS
 # ==========================================================
-
 
 if run_clicked:
 
@@ -781,7 +931,7 @@ if run_clicked:
             "Find and select a location before analyzing."
         )
 
-    else:
+    elif analysis_type == "Compare two dates":
 
         try:
             with st.spinner("Analyzing satellite data..."):
@@ -825,18 +975,62 @@ if run_clicked:
             with st.expander("Technical details"):
                 st.exception(error)
 
+    else:
+
+        try:
+            with st.spinner("Analyzing satellite data..."):
+                start_time = time.perf_counter()
+                trend_result = analyze_trend(
+                    latitude=selected_location["latitude"],
+                    longitude=selected_location["longitude"],
+                    dates=[
+                        str(single_date)
+                        for single_date in trend_dates
+                    ],
+                    radius_km=radius_km,
+                    confidence_threshold=CONFIDENCE_THRESHOLD,
+                )
+
+            elapsed = time.perf_counter() - start_time
+            print(
+                f"SetQuery Earth Engine trend analysis: "
+                f"{elapsed:.1f} seconds"
+            )
+
+            st.session_state.trend_data = {
+                "location": selected_location["address"],
+                "latitude": selected_location["latitude"],
+                "longitude": selected_location["longitude"],
+                "radius_km": radius_km,
+                **trend_result,
+            }
+
+        except (
+            AnalysisValidationError,
+            AnalysisDataError,
+            ValueError,
+        ) as error:
+            st.error(str(error))
+
+        except Exception as error:
+            st.error("Trend analysis could not be completed.")
+            with st.expander("Technical details"):
+                st.exception(error)
+
+
 # ==========================================================
 # ACTIVE ANALYSIS
 # ==========================================================
 
 data = st.session_state.analysis_data
+trend_data = st.session_state.trend_data
 
 
 # ==========================================================
 # EMPTY WORKSPACE
 # ==========================================================
 
-if data is None:
+if data is None and trend_data is None:
 
     st.markdown(
         '<div class="sq-workspace-spacer"></div>',
@@ -918,6 +1112,179 @@ if data is None:
 
     st.stop()
 
+
+# ==========================================================
+# TREND RESULT VIEW
+# ==========================================================
+
+if trend_data is not None:
+
+    period_dates = [
+        period["date"]
+        for period in trend_data["periods"]
+    ]
+
+    st.markdown(
+        '<div class="sq-result-header">'
+        f'<div class="sq-location">{trend_data["location"]}</div>'
+        f'<div class="sq-meta">{period_dates[0]} → {period_dates[-1]} '
+        f'&nbsp;·&nbsp; {len(period_dates)} time points &nbsp;·&nbsp; '
+        f'{trend_data["radius_km"]} km radius</div>'
+        '<div class="sq-result-context">Modern ML Trend &nbsp;·&nbsp; ~10 m</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    section(
+        "Study area",
+        "Geographic context",
+        (
+            "Interactive reference map showing the selected "
+            "analysis center and circular study area."
+        ),
+    )
+
+    trend_map = build_study_area_map(
+        latitude=trend_data["latitude"],
+        longitude=trend_data["longitude"],
+        radius_km=trend_data["radius_km"],
+        location_label=trend_data["location"],
+    )
+
+    st_folium(
+        trend_map,
+        height=420,
+        use_container_width=True,
+        returned_objects=[],
+        key="trend_study_area_map",
+    )
+
+    st.caption(
+        "Basemap detail is for geographic context only. "
+        "SetQuery measurements use Sentinel-2 and Dynamic World."
+    )
+
+    st.divider()
+
+    section(
+        "Results",
+        "Land-cover trend",
+        trend_data["methodology_note"],
+    )
+
+    st.info(
+        "Each date below is analyzed independently. Faded "
+        "points had low comparable coverage for that specific "
+        "date and should be interpreted with caution rather "
+        "than treated as confirmed measurements."
+    )
+
+    st.altair_chart(
+        trend_composition_chart(trend_data),
+        width="stretch",
+    )
+
+    st.caption(
+        "Percent values are relative to each date's own valid "
+        "area, not the full study area, because coverage can "
+        "differ significantly between independently analyzed "
+        "dates."
+    )
+
+    st.divider()
+
+    section("Details", "Per-date measurements")
+
+    table_rows = [
+        {
+            "Date": period["date"],
+            "Reliable": "Yes" if period["reliable"] else "No",
+            "Coverage %": round(period["coverage_percent"], 1),
+            "Observations": period["observations"],
+            "Vegetation km²": round(period["vegetation_km2"], 3),
+            "Built-up km²": round(period["built_km2"], 3),
+            "Water km²": round(period["water_km2"], 3),
+            "Bare km²": round(period["bare_km2"], 3),
+        }
+        for period in trend_data["periods"]
+    ]
+
+    st.dataframe(
+        table_rows,
+        width="stretch",
+        hide_index=True,
+    )
+
+    # ------------------------------------------------------
+    # ASK SETQUERY (POPOVER)
+    # ------------------------------------------------------
+
+    st.divider()
+    section("Query", "Ask SetQuery AI")
+
+    with st.popover("Ask SetQuery AI", use_container_width=False):
+        st.caption(
+            "Ask SetQuery is not yet available for trend "
+            "results in this version. Use Compare two dates "
+            "to ask grounded questions about a specific "
+            "before/after change."
+        )
+
+    # ------------------------------------------------------
+    # WARNINGS
+    # ------------------------------------------------------
+
+    if trend_data.get("warnings"):
+        st.divider()
+        section("Notes", "Warnings")
+        for warning in trend_data["warnings"]:
+            st.warning(warning)
+
+    st.divider()
+
+    with st.expander("Methodology and metadata"):
+
+        st.write(f"Total study area: `{trend_data['total_area_km2']:.2f} km²`")
+        st.write(f"Classification method: `{trend_data['classification_method']}`")
+        st.write(
+            "Per-observation probability: "
+            f"`≥ {trend_data['confidence_threshold'] * 100:.0f}%`"
+        )
+        st.write(
+            "Minimum confident observations: "
+            f"`{trend_data['min_confident_observations']}`"
+        )
+        st.write(
+            "Minimum confidence frequency: "
+            f"`≥ {trend_data['min_confidence_frequency'] * 100:.0f}%`"
+        )
+        st.write(
+            "Dominant-class agreement: "
+            f"`≥ {trend_data['min_temporal_consensus'] * 100:.0f}%`"
+        )
+        st.write(
+            "Reliable coverage threshold: "
+            f"`≥ {trend_data['reliable_coverage_threshold']:.0f}%`"
+        )
+
+        st.markdown(
+            """
+Trend points are independent snapshots, not pairwise
+change measurements. No transition classes (e.g.
+Vegetation → Built) are calculated in this view. For
+pairwise transition analysis, use Compare two dates.
+
+Ask SetQuery is not yet available for trend results in
+this version.
+"""
+        )
+
+    st.markdown(
+        '<div class="sq-footer">SetQuery · Satellite change analysis</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.stop()
 
 # ==========================================================
 # COMMON RESULT DATA
@@ -1224,19 +1591,49 @@ st.write(summary)
 
 
 # ==========================================================
-# ASK SETQUERY
+# ASK SETQUERY (POPOVER)
 # ==========================================================
 
 st.divider()
-section("Query", "Ask SetQuery", "Ask a question about the current analysis.")
+section("Query", "Ask SetQuery AI", "Ask a question about the current analysis.")
 
-with st.form("question_form", clear_on_submit=False):
-    question = st.text_input(
-        "Question",
-        placeholder="What changed in this area?",
-        label_visibility="collapsed",
-    )
-    ask_clicked = st.form_submit_button("Ask", type="primary", use_container_width=False)
+with st.popover("Ask SetQuery AI", use_container_width=False):
+
+    with st.form("question_form", clear_on_submit=False):
+        question = st.text_input(
+            "Question",
+            placeholder="What changed in this area?",
+            label_visibility="collapsed",
+        )
+        ask_clicked = st.form_submit_button(
+            "Ask",
+            type="primary",
+            use_container_width=True,
+        )
+
+    if ask_clicked and question.strip():
+        answer, source, status = resolve_ai_answer(
+            mode, question, result, location, before, after
+        )
+        st.session_state.ai_answer = answer
+        st.session_state.ai_source = source
+        st.session_state.ai_status = status
+
+    if st.session_state.ai_answer:
+
+        st.divider()
+
+        st.caption(
+            AI_SOURCE_CAPTIONS.get(
+                st.session_state.ai_source,
+                "Local response from analysis measurements",
+            )
+        )
+        st.write(st.session_state.ai_answer)
+
+        if st.session_state.ai_status:
+            with st.expander("Service status"):
+                st.caption(st.session_state.ai_status)
 
 
 # ==========================================================
