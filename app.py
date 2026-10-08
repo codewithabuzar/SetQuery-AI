@@ -15,6 +15,7 @@ from analysis import AnalysisValidationError, AnalysisDataError
 from historical_analysis import HistoricalValidationError, HistoricalDataError
 from analysis_router import run_routed_analysis, choose_analysis_mode
 from trend_analysis import analyze_trend
+from flood_analysis import analyze_flood_evidence, FloodValidationError, FloodDataError
 from report import generate_analysis_summary, get_coverage_interpretation
 from historical_report import (
     generate_historical_summary,
@@ -80,6 +81,8 @@ SESSION_DEFAULTS = {
     "app_view": "home",
     "analysis_data": None,
     "trend_data": None,
+    "flood_evidence_data": None,
+    "flood_evidence_error": None,
     "ai_answer": None,
     "ai_source": None,
     "ai_status": None,
@@ -205,6 +208,8 @@ def clear_analysis():
     """Clear current analysis and query state."""
     st.session_state.analysis_data = None
     st.session_state.trend_data = None
+    st.session_state.flood_evidence_data = None
+    st.session_state.flood_evidence_error = None
     st.session_state.ai_answer = None
     st.session_state.ai_source = None
     st.session_state.ai_status = None
@@ -866,23 +871,6 @@ with st.sidebar:
             trend_dates.append(picked_date)
 
     # ------------------------------------------------------
-    # FLOOD EVIDENCE OPT-IN
-    # ------------------------------------------------------
-
-    if analysis_type == "Compare two dates":
-        include_flood_evidence = st.checkbox(
-            "Include flood evidence (Sentinel-1 SAR)",
-            value=False,
-            help=(
-                "Adds a separate Sentinel-1 SAR-based surface-water "
-                "change indicator. Builds its own satellite data "
-                "collection, so it adds noticeable extra analysis time."
-            ),
-        )
-    else:
-        include_flood_evidence = False
-
-    # ------------------------------------------------------
     # RADIUS
     # ------------------------------------------------------
 
@@ -960,7 +948,6 @@ if run_clicked:
                     after_date=str(after_date),
                     radius_km=radius_km,
                     confidence_threshold=CONFIDENCE_THRESHOLD,
-                    include_flood_evidence=include_flood_evidence,
                 )
 
             elapsed = time.perf_counter() - start_time
@@ -1544,24 +1531,67 @@ if mode == "modern_ml":
 
     with flood_tab:
 
-        flood_evidence = data.get("flood_evidence")
+        st.caption(
+            "SAR-based surface-water change indicator, not a "
+            "validated flood damage assessment."
+        )
 
-        if flood_evidence is None:
+        flood_result = st.session_state.flood_evidence_data
+        flood_error = st.session_state.flood_evidence_error
+
+        if flood_result is None:
 
             st.info(
-                "Flood evidence was not calculated for this analysis. "
-                "Enable \"Include flood evidence\" in the sidebar before "
-                "running the analysis to see Sentinel-1 SAR results here."
+                "Flood evidence is not calculated automatically because "
+                "it uses a separate Sentinel-1 SAR dataset and adds "
+                "noticeable extra time. Click below to check this "
+                "specific area and date range."
             )
+
+            if flood_error:
+                st.warning(flood_error)
+
+            check_flood_clicked = st.button(
+                "Check flood evidence (Sentinel-1 SAR, ~10-20s)",
+                key="check_flood_evidence_button",
+            )
+
+            if check_flood_clicked:
+
+                try:
+                    with st.spinner("Running Sentinel-1 SAR flood analysis..."):
+                        flood_start_time = time.perf_counter()
+                        flood_result = analyze_flood_evidence(
+                            latitude=latitude,
+                            longitude=longitude,
+                            before_date=before,
+                            after_date=after,
+                            radius_km=radius,
+                        )
+                        flood_elapsed = time.perf_counter() - flood_start_time
+
+                    print(
+                        f"SetQuery flood evidence analysis: "
+                        f"{flood_elapsed:.1f} seconds"
+                    )
+
+                    st.session_state.flood_evidence_data = flood_result
+                    st.session_state.flood_evidence_error = None
+                    st.rerun()
+
+                except (FloodValidationError, FloodDataError) as error:
+                    st.session_state.flood_evidence_error = str(error)
+                    st.rerun()
+
+                except Exception as error:
+                    st.session_state.flood_evidence_error = (
+                        f"Flood evidence could not be calculated: {error}"
+                    )
+                    st.rerun()
 
         else:
 
-            st.caption(
-                "SAR-based surface-water change indicator, not a "
-                "validated flood damage assessment."
-            )
-
-            if not flood_evidence["orbit_matched"]:
+            if not flood_result["orbit_matched"]:
                 st.warning(
                     "No shared Sentinel-1 orbit pass was found between "
                     "the Before and After periods. This result may be "
@@ -1570,19 +1600,19 @@ if mode == "modern_ml":
 
             metric_grid(
                 [
-                    ("Before mean VV", f"{flood_evidence['before_mean_vv_db']:.2f} dB"),
-                    ("After mean VV", f"{flood_evidence['after_mean_vv_db']:.2f} dB"),
-                    ("New water", f"{flood_evidence['new_water_percent_of_valid_area']:.2f}%"),
+                    ("Before mean VV", f"{flood_result['before_mean_vv_db']:.2f} dB"),
+                    ("After mean VV", f"{flood_result['after_mean_vv_db']:.2f} dB"),
+                    ("New water", f"{flood_result['new_water_percent_of_valid_area']:.2f}%"),
                 ],
                 per_row=3,
             )
 
             st.write(
-                f"New water area: `{flood_evidence['new_water_area_km2']:.3f} km²` "
-                f"of `{flood_evidence['valid_area_km2']:.2f} km²` analyzed"
+                f"New water area: `{flood_result['new_water_area_km2']:.3f} km²` "
+                f"of `{flood_result['valid_area_km2']:.2f} km²` analyzed"
             )
 
-            for warning in flood_evidence["warnings"]:
+            for warning in flood_result["warnings"]:
                 st.warning(warning)
 
     # ------------------------------------------------------

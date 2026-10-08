@@ -26,7 +26,13 @@ METHODOLOGY NOTES (read before using results):
 - A focal-median speckle filter is applied, but SAR speckle noise is
   never fully eliminated. Small isolated flagged pixels should not be
   over-interpreted as confirmed flooding.
+- The sampling resolution (scale) used for summary statistics adapts to
+  the chosen radius so that computation time stays reasonable across
+  both small and large study areas. This affects sampling density only,
+  not which evidence sources or exclusion masks are used.
 """
+
+import math
 
 import ee
 
@@ -36,7 +42,12 @@ COMPOSITE_WINDOW_DAYS = 15
 MIN_DATE_SEPARATION_DAYS = 90
 PERMANENT_WATER_OCCURRENCE_THRESHOLD = 50  # percent, JRC GSW "occurrence" band
 SLOPE_MASK_DEGREES = 5
-OTSU_HISTOGRAM_BUCKETS = 255
+OTSU_HISTOGRAM_BUCKETS = 30
+REDUCE_REGION_TILE_SCALE = 4
+
+MIN_FLOOD_SCALE_M = 10
+MAX_FLOOD_SCALE_M = 100
+TARGET_PIXEL_COUNT = 120_000
 
 
 class FloodValidationError(Exception):
@@ -58,6 +69,18 @@ def _ensure_ee_initialized():
             raise FloodDataError(
                 f"Earth Engine could not be initialized: {error}"
             ) from error
+
+
+def _adaptive_scale_m(radius_km):
+    """
+    Choose a sampling scale so the number of pixels analyzed stays
+    roughly constant regardless of the chosen radius. Small study
+    areas get finer detail; large study areas automatically use a
+    coarser scale to keep analysis time reasonable.
+    """
+    area_m2 = math.pi * (radius_km * 1000) ** 2
+    scale = math.sqrt(area_m2 / TARGET_PIXEL_COUNT)
+    return max(MIN_FLOOD_SCALE_M, min(MAX_FLOOD_SCALE_M, scale))
 
 
 def _build_sentinel1_collection(aoi, start, end):
@@ -100,7 +123,8 @@ def _otsu_threshold(histogram_dict):
     This finds the backscatter value that best separates the histogram
     into two classes (water / non-water) by maximizing between-class
     variance. This is the method documented in Google Earth Engine's
-    community tutorial for SAR flood mapping.
+    community tutorial for SAR flood mapping. The bucket count is kept
+    modest since each bucket adds one sequential server-side step.
     """
     histogram_dict = ee.Dictionary(histogram_dict)
     counts = ee.Array(histogram_dict.get("histogram"))
@@ -152,6 +176,8 @@ def analyze_flood_evidence(latitude, longitude, before_date, after_date, radius_
             f"Before and After dates must be at least {MIN_DATE_SEPARATION_DAYS} "
             "days apart for flood evidence analysis."
         )
+
+    scale_m = _adaptive_scale_m(radius_km)
 
     aoi = ee.Geometry.Point([longitude, latitude]).buffer(radius_km * 1000)
 
@@ -228,9 +254,10 @@ def analyze_flood_evidence(latitude, longitude, before_date, after_date, radius_
     after_histogram = after_image.reduceRegion(
         reducer=ee.Reducer.histogram(OTSU_HISTOGRAM_BUCKETS, 2),
         geometry=aoi,
-        scale=10,
+        scale=scale_m,
         maxPixels=1e9,
         bestEffort=True,
+        tileScale=REDUCE_REGION_TILE_SCALE,
     ).get("VV")
 
     otsu_threshold = _otsu_threshold(after_histogram)
@@ -252,23 +279,48 @@ def analyze_flood_evidence(latitude, longitude, before_date, after_date, radius_
     valid_area_image = terrain_ok_mask.multiply(pixel_area).rename("valid_area")
 
     diff_mean = after_image.subtract(before_image).rename("vv_diff").reduceRegion(
-        reducer=ee.Reducer.mean(), geometry=aoi, scale=10, maxPixels=1e9, bestEffort=True
+        reducer=ee.Reducer.mean(),
+        geometry=aoi,
+        scale=scale_m,
+        maxPixels=1e9,
+        bestEffort=True,
+        tileScale=REDUCE_REGION_TILE_SCALE,
     ).get("vv_diff")
 
     final_results = ee.Dictionary({
         "before_mean_vv": before_image.reduceRegion(
-            reducer=ee.Reducer.mean(), geometry=aoi, scale=10, maxPixels=1e9, bestEffort=True
+            reducer=ee.Reducer.mean(),
+            geometry=aoi,
+            scale=scale_m,
+            maxPixels=1e9,
+            bestEffort=True,
+            tileScale=REDUCE_REGION_TILE_SCALE,
         ).get("VV"),
         "after_mean_vv": after_image.reduceRegion(
-            reducer=ee.Reducer.mean(), geometry=aoi, scale=10, maxPixels=1e9, bestEffort=True
+            reducer=ee.Reducer.mean(),
+            geometry=aoi,
+            scale=scale_m,
+            maxPixels=1e9,
+            bestEffort=True,
+            tileScale=REDUCE_REGION_TILE_SCALE,
         ).get("VV"),
         "mean_vv_difference": diff_mean,
         "otsu_threshold": otsu_threshold,
         "new_water_area_m2": new_water_area_image.reduceRegion(
-            reducer=ee.Reducer.sum(), geometry=aoi, scale=10, maxPixels=1e9, bestEffort=True
+            reducer=ee.Reducer.sum(),
+            geometry=aoi,
+            scale=scale_m,
+            maxPixels=1e9,
+            bestEffort=True,
+            tileScale=REDUCE_REGION_TILE_SCALE,
         ).get("new_water_area"),
         "valid_area_m2": valid_area_image.reduceRegion(
-            reducer=ee.Reducer.sum(), geometry=aoi, scale=10, maxPixels=1e9, bestEffort=True
+            reducer=ee.Reducer.sum(),
+            geometry=aoi,
+            scale=scale_m,
+            maxPixels=1e9,
+            bestEffort=True,
+            tileScale=REDUCE_REGION_TILE_SCALE,
         ).get("valid_area"),
     }).getInfo()
 
@@ -302,6 +354,10 @@ def analyze_flood_evidence(latitude, longitude, before_date, after_date, radius_
         "this result. Dense urban areas and dense vegetation can also hide "
         "flooding from SAR and are not separately flagged here."
     )
+    warnings.append(
+        f"Measurements were sampled at approximately {scale_m:.0f} m resolution, "
+        "adapted to the selected radius to keep analysis time reasonable."
+    )
 
     return {
         "method": "sentinel1_sar_otsu_threshold",
@@ -315,5 +371,6 @@ def analyze_flood_evidence(latitude, longitude, before_date, after_date, radius_
         "new_water_area_km2": new_water_area_km2,
         "valid_area_km2": valid_area_km2,
         "new_water_percent_of_valid_area": new_water_percent_of_valid_area,
+        "analysis_scale_m": scale_m,
         "warnings": warnings,
     }
