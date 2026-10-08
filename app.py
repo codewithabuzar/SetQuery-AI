@@ -1377,8 +1377,8 @@ if mode == "modern_ml":
         "Dynamic World transitions over the after-period Sentinel-2 composite.",
     )
 
-    change_tab, before_tab, after_tab, compare_tab, burn_tab = st.tabs(
-        ["Change map", "Before", "After", "Compare", "Burn evidence"]
+    change_tab, before_tab, after_tab, compare_tab, burn_tab, veg_tab = st.tabs(
+        ["Change map", "Before", "After", "Compare", "Burn evidence", "Vegetation stress"]
     )
 
     with change_tab:
@@ -1462,6 +1462,66 @@ if mode == "modern_ml":
             st.caption(burn_evidence["severity_thresholds_note"])
 
             for warning in burn_evidence["warnings"]:
+                st.warning(warning)
+
+    with veg_tab:
+
+        vegetation_stress = data.get("vegetation_stress")
+
+        if vegetation_stress is None:
+
+            st.info(
+                "Vegetation stress could not be calculated for "
+                "this analysis."
+            )
+
+        else:
+
+            st.caption(
+                "Spectral evidence from NDVI change, not a "
+                "validated drought or crop-stress confirmation."
+            )
+
+            metric_grid(
+                [
+                    ("Before mean NDVI", f"{vegetation_stress['before_mean_ndvi']:.3f}"),
+                    ("After mean NDVI", f"{vegetation_stress['after_mean_ndvi']:.3f}"),
+                    ("Mean NDVI change", f"{vegetation_stress['mean_ndvi_change']:+.3f}"),
+                ],
+                per_row=3,
+            )
+
+            breakdown_rows = [
+                {"Category": "Increased", "Percent": vegetation_stress["increased_percent"]},
+                {"Category": "Decreased", "Percent": vegetation_stress["decreased_percent"]},
+                {"Category": "Stable", "Percent": vegetation_stress["stable_percent"]},
+            ]
+
+            breakdown_chart = (
+                alt.Chart(alt.Data(values=breakdown_rows))
+                .mark_bar(cornerRadiusTopLeft=1, cornerRadiusTopRight=1)
+                .encode(
+                    x=alt.X("Category:N", title=None, sort=None),
+                    y=alt.Y("Percent:Q", title="% of valid area"),
+                    tooltip=[
+                        alt.Tooltip("Category:N"),
+                        alt.Tooltip("Percent:Q", format=".2f"),
+                    ],
+                )
+                .properties(height=250)
+                .configure_view(strokeOpacity=0)
+                .configure_axis(
+                    labelColor="#8a9095",
+                    titleColor="#8a9095",
+                    gridColor="#222629",
+                    domainColor="#303438",
+                    tickColor="#303438",
+                )
+            )
+
+            st.altair_chart(breakdown_chart, width="stretch")
+
+            for warning in vegetation_stress["warnings"]:
                 st.warning(warning)
 
     # ------------------------------------------------------
