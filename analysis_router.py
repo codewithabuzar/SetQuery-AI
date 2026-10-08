@@ -7,6 +7,7 @@ from analysis import (
     get_prepared_change_map,
 )
 from burn_analysis import analyze_burn_evidence
+from vegetation_stress_analysis import analyze_vegetation_stress
 from historical_analysis import (
     analyze_historical_area,
     get_historical_satellite_images,
@@ -100,7 +101,8 @@ def run_routed_analysis(
 
     Modern mode prepares its shared Earth Engine context
     once and reuses it for statistics, Sentinel-2 imagery,
-    Change Map generation, and burn evidence.
+    Change Map generation, burn evidence, and vegetation
+    stress.
     """
 
     mode = choose_analysis_mode(
@@ -156,6 +158,17 @@ def run_routed_analysis(
             # successfully.
             burn_evidence = None
 
+        try:
+            vegetation_stress = analyze_vegetation_stress(
+                context
+            )
+        except Exception:
+            # Vegetation stress is a supplementary indicator.
+            # If it fails for any reason, the core land-cover
+            # analysis above must still be returned
+            # successfully.
+            vegetation_stress = None
+
         return {
             "mode":
                 "modern_ml",
@@ -180,6 +193,9 @@ def run_routed_analysis(
 
             "burn_evidence":
                 burn_evidence,
+
+            "vegetation_stress":
+                vegetation_stress,
         }
 
     # ------------------------------------------------------
@@ -230,8 +246,11 @@ def run_routed_analysis(
         "change_map":
             None,
 
-        # Burn evidence is currently only implemented for
-        # Modern mode.
+        # Burn evidence and vegetation stress are currently
+        # only implemented for Modern mode.
         "burn_evidence":
+            None,
+
+        "vegetation_stress":
             None,
     }
