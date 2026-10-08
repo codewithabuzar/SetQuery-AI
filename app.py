@@ -866,6 +866,23 @@ with st.sidebar:
             trend_dates.append(picked_date)
 
     # ------------------------------------------------------
+    # FLOOD EVIDENCE OPT-IN
+    # ------------------------------------------------------
+
+    if analysis_type == "Compare two dates":
+        include_flood_evidence = st.checkbox(
+            "Include flood evidence (Sentinel-1 SAR)",
+            value=False,
+            help=(
+                "Adds a separate Sentinel-1 SAR-based surface-water "
+                "change indicator. Builds its own satellite data "
+                "collection, so it adds noticeable extra analysis time."
+            ),
+        )
+    else:
+        include_flood_evidence = False
+
+    # ------------------------------------------------------
     # RADIUS
     # ------------------------------------------------------
 
@@ -943,6 +960,7 @@ if run_clicked:
                     after_date=str(after_date),
                     radius_km=radius_km,
                     confidence_threshold=CONFIDENCE_THRESHOLD,
+                    include_flood_evidence=include_flood_evidence,
                 )
 
             elapsed = time.perf_counter() - start_time
@@ -1377,8 +1395,8 @@ if mode == "modern_ml":
         "Dynamic World transitions over the after-period Sentinel-2 composite.",
     )
 
-    change_tab, before_tab, after_tab, compare_tab, burn_tab, veg_tab = st.tabs(
-        ["Change map", "Before", "After", "Compare", "Burn evidence", "Vegetation stress"]
+    change_tab, before_tab, after_tab, compare_tab, burn_tab, veg_tab, flood_tab = st.tabs(
+        ["Change map", "Before", "After", "Compare", "Burn evidence", "Vegetation stress", "Flood evidence"]
     )
 
     with change_tab:
@@ -1522,6 +1540,49 @@ if mode == "modern_ml":
             st.altair_chart(breakdown_chart, width="stretch")
 
             for warning in vegetation_stress["warnings"]:
+                st.warning(warning)
+
+    with flood_tab:
+
+        flood_evidence = data.get("flood_evidence")
+
+        if flood_evidence is None:
+
+            st.info(
+                "Flood evidence was not calculated for this analysis. "
+                "Enable \"Include flood evidence\" in the sidebar before "
+                "running the analysis to see Sentinel-1 SAR results here."
+            )
+
+        else:
+
+            st.caption(
+                "SAR-based surface-water change indicator, not a "
+                "validated flood damage assessment."
+            )
+
+            if not flood_evidence["orbit_matched"]:
+                st.warning(
+                    "No shared Sentinel-1 orbit pass was found between "
+                    "the Before and After periods. This result may be "
+                    "affected by viewing-geometry differences."
+                )
+
+            metric_grid(
+                [
+                    ("Before mean VV", f"{flood_evidence['before_mean_vv_db']:.2f} dB"),
+                    ("After mean VV", f"{flood_evidence['after_mean_vv_db']:.2f} dB"),
+                    ("New water", f"{flood_evidence['new_water_percent_of_valid_area']:.2f}%"),
+                ],
+                per_row=3,
+            )
+
+            st.write(
+                f"New water area: `{flood_evidence['new_water_area_km2']:.3f} km²` "
+                f"of `{flood_evidence['valid_area_km2']:.2f} km²` analyzed"
+            )
+
+            for warning in flood_evidence["warnings"]:
                 st.warning(warning)
 
     # ------------------------------------------------------
