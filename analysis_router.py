@@ -8,6 +8,7 @@ from analysis import (
 )
 from burn_analysis import analyze_burn_evidence
 from vegetation_stress_analysis import analyze_vegetation_stress
+from flood_analysis import analyze_flood_evidence
 from historical_analysis import (
     analyze_historical_area,
     get_historical_satellite_images,
@@ -95,6 +96,7 @@ def run_routed_analysis(
     after_date,
     radius_km=10,
     confidence_threshold=0.60,
+    include_flood_evidence=False,
 ):
     """
     Run the appropriate SetQuery analysis methodology.
@@ -103,12 +105,35 @@ def run_routed_analysis(
     once and reuses it for statistics, Sentinel-2 imagery,
     Change Map generation, burn evidence, and vegetation
     stress.
+
+    Flood evidence (Sentinel-1 SAR) is opt-in via
+    include_flood_evidence, since it builds its own
+    separate Earth Engine collection and adds noticeable
+    extra time regardless of analysis mode.
     """
 
     mode = choose_analysis_mode(
         before_date,
         after_date,
     )
+
+    flood_evidence = None
+
+    if include_flood_evidence:
+        try:
+            flood_evidence = analyze_flood_evidence(
+                latitude=latitude,
+                longitude=longitude,
+                before_date=before_date,
+                after_date=after_date,
+                radius_km=radius_km,
+            )
+        except Exception:
+            # Flood evidence is a supplementary, opt-in
+            # indicator. If it fails for any reason, the
+            # core analysis below must still be returned
+            # successfully.
+            flood_evidence = None
 
     # ------------------------------------------------------
     # MODERN
@@ -196,6 +221,9 @@ def run_routed_analysis(
 
             "vegetation_stress":
                 vegetation_stress,
+
+            "flood_evidence":
+                flood_evidence,
         }
 
     # ------------------------------------------------------
@@ -253,4 +281,11 @@ def run_routed_analysis(
 
         "vegetation_stress":
             None,
+
+        # Flood evidence does not depend on the modern/
+        # historical classification boundary, since it uses
+        # Sentinel-1 SAR directly. It is still included here
+        # if the user opted in.
+        "flood_evidence":
+            flood_evidence,
     }
