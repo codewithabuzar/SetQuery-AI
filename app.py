@@ -1377,7 +1377,9 @@ if mode == "modern_ml":
         "Dynamic World transitions over the after-period Sentinel-2 composite.",
     )
 
-    change_tab, before_tab, after_tab, compare_tab = st.tabs(["Change map", "Before", "After", "Compare"])
+    change_tab, before_tab, after_tab, compare_tab, burn_tab = st.tabs(
+        ["Change map", "Before", "After", "Compare", "Burn evidence"]
+    )
 
     with change_tab:
         st.image(data["change_map"]["change_url"], width="stretch")
@@ -1396,6 +1398,71 @@ if mode == "modern_ml":
         before=before,
         after=after,
     )
+
+    with burn_tab:
+
+        burn_evidence = data.get("burn_evidence")
+
+        if burn_evidence is None:
+
+            st.info(
+                "Burn evidence could not be calculated for "
+                "this analysis."
+            )
+
+        else:
+
+            st.caption(
+                "Spectral evidence from NBR/dNBR, not a "
+                "validated fire detection or damage "
+                "assessment."
+            )
+
+            metric_grid(
+                [
+                    ("Before mean NBR", f"{burn_evidence['before_mean_nbr']:.3f}"),
+                    ("After mean NBR", f"{burn_evidence['after_mean_nbr']:.3f}"),
+                    ("Mean dNBR", f"{burn_evidence['mean_dnbr']:+.3f}"),
+                ],
+                per_row=3,
+            )
+
+            severity_rows = [
+                {
+                    "Category": label.replace("_", " ").title(),
+                    "Area": area_km2,
+                }
+                for label, area_km2 in burn_evidence["severity_area_km2"].items()
+            ]
+
+            severity_chart = (
+                alt.Chart(alt.Data(values=severity_rows))
+                .mark_bar(cornerRadiusTopLeft=1, cornerRadiusTopRight=1)
+                .encode(
+                    x=alt.X("Category:N", title=None, sort=None),
+                    y=alt.Y("Area:Q", title="Area (km²)"),
+                    tooltip=[
+                        alt.Tooltip("Category:N"),
+                        alt.Tooltip("Area:Q", format=".4f"),
+                    ],
+                )
+                .properties(height=250)
+                .configure_view(strokeOpacity=0)
+                .configure_axis(
+                    labelColor="#8a9095",
+                    titleColor="#8a9095",
+                    gridColor="#222629",
+                    domainColor="#303438",
+                    tickColor="#303438",
+                )
+            )
+
+            st.altair_chart(severity_chart, width="stretch")
+
+            st.caption(burn_evidence["severity_thresholds_note"])
+
+            for warning in burn_evidence["warnings"]:
+                st.warning(warning)
 
     # ------------------------------------------------------
     # LAND COVER
