@@ -1400,6 +1400,31 @@ def analyze_prepared_area(
     # approximation, so the reported value is unchanged.
     # --------------------------------------------------
 
+    radius_km_value = float(
+        request.get(
+            "radius_km",
+            10,
+        )
+    )
+
+    # Adaptive sampling scale: keeps the number of
+    # pixels analyzed roughly constant regardless of
+    # the chosen radius, so a large study area does not
+    # take proportionally much longer than a small one.
+    # Small areas keep native 10 m detail; large areas
+    # automatically use a coarser scale.
+    analysis_scale_m = max(
+        10,
+        min(
+            40,
+            (
+                3.1416
+                * (radius_km_value * 1000) ** 2
+                / 150000
+            ) ** 0.5,
+        ),
+    )
+
     try:
         combined = ee.Dictionary(
             {
@@ -1409,7 +1434,7 @@ def analyze_prepared_area(
                             ee.Reducer.sum()
                         ),
                         geometry=area,
-                        scale=10,
+                        scale=analysis_scale_m,
                         maxPixels=1e9,
                         tileScale=4,
                     ),

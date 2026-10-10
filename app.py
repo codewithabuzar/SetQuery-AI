@@ -83,6 +83,10 @@ SESSION_DEFAULTS = {
     "trend_data": None,
     "flood_evidence_data": None,
     "flood_evidence_error": None,
+    "burn_evidence_data": None,
+    "burn_evidence_error": None,
+    "vegetation_stress_data": None,
+    "vegetation_stress_error": None,
     "ai_answer": None,
     "ai_source": None,
     "ai_status": None,
@@ -210,6 +214,10 @@ def clear_analysis():
     st.session_state.trend_data = None
     st.session_state.flood_evidence_data = None
     st.session_state.flood_evidence_error = None
+    st.session_state.burn_evidence_data = None
+    st.session_state.burn_evidence_error = None
+    st.session_state.vegetation_stress_data = None
+    st.session_state.vegetation_stress_error = None
     st.session_state.ai_answer = None
     st.session_state.ai_source = None
     st.session_state.ai_status = None
@@ -1411,11 +1419,51 @@ if mode == "modern_ml":
         if burn_evidence is None:
 
             st.info(
-                "Burn evidence could not be calculated for "
-                "this analysis."
+                "Burn evidence is not calculated automatically because "
+                "it uses additional spectral analysis and adds noticeable "
+                "extra time. Click below to check this specific area and "
+                "date range."
             )
 
+            check_burn_clicked = st.button(
+                "Check burn evidence (NBR/dNBR, ~5-10s)",
+                key="check_burn_evidence_button",
+            )
+
+            if check_burn_clicked:
+
+                try:
+                    from burn_analysis import analyze_burn_evidence
+                    with st.spinner("Calculating burn evidence..."):
+                        burn_start_time = time.perf_counter()
+                        burn_evidence = analyze_burn_evidence(
+                            latitude=latitude,
+                            longitude=longitude,
+                            before_date=before,
+                            after_date=after,
+                            radius_km=radius,
+                        )
+                        burn_elapsed = time.perf_counter() - burn_start_time
+
+                    print(
+                        f"SetQuery burn evidence analysis: "
+                        f"{burn_elapsed:.1f} seconds"
+                    )
+
+                    st.session_state.burn_evidence_data = burn_evidence
+                    st.session_state.burn_evidence_error = None
+                    st.rerun()
+
+                except Exception as error:
+                    st.session_state.burn_evidence_error = (
+                        f"Burn evidence could not be calculated: {error}"
+                    )
+                    st.rerun()
+
         else:
+            burn_evidence = st.session_state.get("burn_evidence_data")
+
+        if burn_evidence:
 
             st.caption(
                 "Spectral evidence from NBR/dNBR, not a "
@@ -1466,7 +1514,7 @@ if mode == "modern_ml":
 
             st.caption(burn_evidence["severity_thresholds_note"])
 
-            for warning in burn_evidence["warnings"]:
+            for warning in burn_evidence.get("warnings", []):
                 st.warning(warning)
 
     with veg_tab:
@@ -1476,11 +1524,51 @@ if mode == "modern_ml":
         if vegetation_stress is None:
 
             st.info(
-                "Vegetation stress could not be calculated for "
-                "this analysis."
+                "Vegetation stress is not calculated automatically because "
+                "it uses additional spectral analysis and adds noticeable "
+                "extra time. Click below to check this specific area and "
+                "date range."
             )
 
+            check_veg_clicked = st.button(
+                "Check vegetation stress (NDVI change, ~5-10s)",
+                key="check_vegetation_stress_button",
+            )
+
+            if check_veg_clicked:
+
+                try:
+                    from vegetation_stress_analysis import analyze_vegetation_stress
+                    with st.spinner("Calculating vegetation stress..."):
+                        veg_start_time = time.perf_counter()
+                        vegetation_stress = analyze_vegetation_stress(
+                            latitude=latitude,
+                            longitude=longitude,
+                            before_date=before,
+                            after_date=after,
+                            radius_km=radius,
+                        )
+                        veg_elapsed = time.perf_counter() - veg_start_time
+
+                    print(
+                        f"SetQuery vegetation stress analysis: "
+                        f"{veg_elapsed:.1f} seconds"
+                    )
+
+                    st.session_state.vegetation_stress_data = vegetation_stress
+                    st.session_state.vegetation_stress_error = None
+                    st.rerun()
+
+                except Exception as error:
+                    st.session_state.vegetation_stress_error = (
+                        f"Vegetation stress could not be calculated: {error}"
+                    )
+                    st.rerun()
+
         else:
+            vegetation_stress = st.session_state.get("vegetation_stress_data")
+
+        if vegetation_stress:
 
             st.caption(
                 "Spectral evidence from NDVI change, not a "
@@ -1526,7 +1614,7 @@ if mode == "modern_ml":
 
             st.altair_chart(breakdown_chart, width="stretch")
 
-            for warning in vegetation_stress["warnings"]:
+            for warning in vegetation_stress.get("warnings", []):
                 st.warning(warning)
 
     with flood_tab:
