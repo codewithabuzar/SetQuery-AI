@@ -94,6 +94,9 @@ SESSION_DEFAULTS = {
     "selected_location": None,
     "selected_location_index": 0,
     "location_search_error": None,
+    "clicked_latitude": None,
+    "clicked_longitude": None,
+    "location_source": None,
 }
 
 
@@ -302,6 +305,11 @@ def perform_location_search(query):
     st.session_state.location_matches = matches
     st.session_state.selected_location = matches[0]
 
+    # A fresh search becomes the active location choice.
+    st.session_state.clicked_latitude = None
+    st.session_state.clicked_longitude = None
+    st.session_state.location_source = "search"
+
 
 # ==========================================================
 # EARTH ENGINE PREVIEW DELIVERY
@@ -430,7 +438,7 @@ def render_preview(preview):
 
 
 # ==========================================================
-# STUDY AREA MAP
+# STUDY AREA MAP WITH CLICK-TO-SELECT
 # ==========================================================
 
 def build_study_area_map(
@@ -438,9 +446,17 @@ def build_study_area_map(
     longitude,
     radius_km,
     location_label=None,
+    tile_layers=None,
+    mode=None,
+    allow_click_select=False,
+    map_key="study_area_map",
 ):
     """
-    Build an interactive geographic-context map.
+    Build an interactive geographic-context map with optional
+    Earth Engine tile layers for Modern ML analysis.
+
+    If allow_click_select is True, returns clicked coordinates
+    from st_folium so users can set analysis center by clicking.
 
     The basemap is for geographic orientation only.
     SetQuery analysis continues to use Earth Engine
@@ -451,7 +467,6 @@ def build_study_area_map(
     longitude = float(longitude)
     radius_km = float(radius_km)
 
-    # A useful initial zoom based on the requested radius.
     if radius_km <= 1:
         zoom_start = 15
     elif radius_km <= 2:
@@ -475,14 +490,13 @@ def build_study_area_map(
         scrollWheelZoom=False,
     )
 
-    # Neutral reference basemap.
     folium.TileLayer(
         tiles=(
             "https://{s}.tile.openstreetmap.org/"
             "{z}/{x}/{y}.png"
         ),
         attr="© OpenStreetMap contributors",
-        name="Map",
+        name="OpenStreetMap",
         overlay=False,
         control=True,
         max_zoom=19,
@@ -490,7 +504,38 @@ def build_study_area_map(
         map_object
     )
 
-    # Selected location.
+    if mode == "modern_ml" and tile_layers:
+        try:
+            folium.TileLayer(
+                tiles=tile_layers.get("before_tile_url"),
+                attr="© Google Earth Engine · Sentinel-2",
+                name="Before · Sentinel-2",
+                overlay=True,
+                control=True,
+                max_zoom=19,
+            ).add_to(map_object)
+
+            folium.TileLayer(
+                tiles=tile_layers.get("after_tile_url"),
+                attr="© Google Earth Engine · Sentinel-2",
+                name="After · Sentinel-2",
+                overlay=True,
+                control=True,
+                max_zoom=19,
+            ).add_to(map_object)
+
+            folium.TileLayer(
+                tiles=tile_layers.get("change_tile_url"),
+                attr="© Google Earth Engine · Dynamic World",
+                name="Change Map",
+                overlay=True,
+                control=True,
+                max_zoom=19,
+            ).add_to(map_object)
+
+        except Exception:
+            pass
+
     popup_text = (
         location_label
         if location_label
@@ -514,7 +559,6 @@ def build_study_area_map(
         map_object
     )
 
-    # Actual circular AOI used by the current analysis.
     folium.Circle(
         location=[
             latitude,
@@ -553,7 +597,25 @@ def build_study_area_map(
         map_object
     )
 
-    return map_object
+    # Render map and capture click events if enabled
+    if allow_click_select:
+        map_data = st_folium(
+            map_object,
+            height=480,
+            use_container_width=True,
+            returned_objects=["last_clicked"],
+            key=map_key,
+        )
+        return map_data
+    else:
+        st_folium(
+            map_object,
+            height=480,
+            use_container_width=True,
+            returned_objects=[],
+            key=map_key,
+        )
+        return None
 
 
 # ==========================================================
@@ -628,12 +690,6 @@ def historical_index_chart(result):
 def trend_composition_chart(trend_data):
     """
     Independent per-date land-cover composition trend chart.
-
-    Each date is analyzed independently (see methodology_note).
-    Points are shown at full opacity when the date's coverage met
-    the reliability threshold, and faded when it did not, so a low-
-    support date does not visually imply the same confidence as a
-    well-supported one.
     """
 
     chart_rows = []
@@ -790,13 +846,16 @@ with st.sidebar:
     # LOCATION
     # ------------------------------------------------------
 
+    st.markdown("### Location")
+
     location_name = st.text_input(
-        "Location",
+        "Search place",
         placeholder="Powai Lake, Mumbai",
         help="Search for a city, locality, landmark, campus, lake, village, or another named place.",
+        key="location_search_input",
     )
 
-    if st.button("Find location", use_container_width=True):
+    if st.button("Find location", use_container_width=True, key="find_location_btn"):
         perform_location_search(location_name)
 
     if st.session_state.location_search_error:
@@ -813,16 +872,31 @@ with st.sidebar:
         )
 
         st.session_state.selected_location = matches[selected_index]
+        st.session_state.location_source = "search"
+
         selected_location = st.session_state.selected_location
 
         st.caption(
-            f"Selected center · {selected_location['latitude']:.5f}, "
+            f"Selected: {selected_location['latitude']:.5f}, "
             f"{selected_location['longitude']:.5f}"
+        )
+
+    # Show clicked location info if set via map
+    if (
+        st.session_state.location_source == "click"
+        and st.session_state.clicked_latitude is not None
+        and st.session_state.clicked_longitude is not None
+    ):
+        st.success(
+            f"📍 Map click: {st.session_state.clicked_latitude:.5f}, "
+            f"{st.session_state.clicked_longitude:.5f}"
         )
 
     # ------------------------------------------------------
     # DATES
     # ------------------------------------------------------
+
+    st.markdown("### Dates")
 
     if analysis_type == "Compare two dates":
 
@@ -882,6 +956,8 @@ with st.sidebar:
     # RADIUS
     # ------------------------------------------------------
 
+    st.markdown("### Study Area")
+
     radius_km = st.slider(
         "Radius",
         min_value=RADIUS_MIN_KM,
@@ -905,11 +981,22 @@ with st.sidebar:
     # ANALYZE
     # ------------------------------------------------------
 
+    st.markdown("### Run")
+
+    # Determine if we have a valid location (from search or click)
+    has_location = (
+        st.session_state.selected_location is not None
+        or (
+            st.session_state.clicked_latitude is not None
+            and st.session_state.clicked_longitude is not None
+        )
+    )
+
     run_clicked = st.button(
         "Analyze",
         type="primary",
         use_container_width=True,
-        disabled=st.session_state.selected_location is None,
+        disabled=not has_location,
     )
 
     if (
@@ -934,14 +1021,22 @@ if run_clicked:
 
     clear_analysis()
 
-    selected_location = (
-        st.session_state.selected_location
-    )
+    # Determine location source and coordinates
+    if st.session_state.location_source == "click" and st.session_state.clicked_latitude:
+        selected_location = {
+            "address": f"Custom location ({st.session_state.clicked_latitude:.5f}, {st.session_state.clicked_longitude:.5f})",
+            "latitude": st.session_state.clicked_latitude,
+            "longitude": st.session_state.clicked_longitude,
+        }
+    elif st.session_state.selected_location:
+        selected_location = st.session_state.selected_location
+    else:
+        selected_location = None
 
     if selected_location is None:
 
         st.error(
-            "Find and select a location before analyzing."
+            "Select a location via search or click on the map before analyzing."
         )
 
     elif analysis_type == "Compare two dates":
@@ -1054,10 +1149,28 @@ if data is None and trend_data is None:
         "Satellite change analysis"
     )
 
-    if (
-        st.session_state.selected_location
-        is None
-    ):
+    # Determine current location for map display
+    if st.session_state.clicked_latitude and st.session_state.clicked_longitude:
+        center_lat = st.session_state.clicked_latitude
+        center_lon = st.session_state.clicked_longitude
+        location_label = f"Custom location ({center_lat:.5f}, {center_lon:.5f})"
+        selected_location = {
+            "address": location_label,
+            "latitude": center_lat,
+            "longitude": center_lon,
+        }
+    elif st.session_state.selected_location:
+        center_lat = st.session_state.selected_location["latitude"]
+        center_lon = st.session_state.selected_location["longitude"]
+        location_label = st.session_state.selected_location["address"]
+        selected_location = st.session_state.selected_location
+    else:
+        center_lat = 20.5937
+        center_lon = 78.9629
+        location_label = None
+        selected_location = None
+
+    if selected_location is None:
 
         st.write(
             "Search for a location in the sidebar, "
@@ -1066,14 +1179,14 @@ if data is None and trend_data is None:
         )
 
         st.caption(
+            "Or click anywhere on the map below to set the analysis center."
+        )
+
+        st.caption(
             "Sentinel-2 · Dynamic World · Landsat"
         )
 
     else:
-
-        selected_location = (
-            st.session_state.selected_location
-        )
 
         st.write(
             "The analysis center is selected. "
@@ -1081,47 +1194,51 @@ if data is None and trend_data is None:
         )
 
         st.caption(
-            selected_location[
-                "address"
-            ]
+            location_label
         )
 
-        study_map = build_study_area_map(
-            latitude=(
-                selected_location[
-                    "latitude"
-                ]
-            ),
-            longitude=(
-                selected_location[
-                    "longitude"
-                ]
-            ),
-            radius_km=radius_km,
-            location_label=(
-                selected_location[
-                    "address"
-                ]
-            ),
+    # Map with click-to-select enabled
+    map_key = "study_area_map"
+    map_data = build_study_area_map(
+        latitude=center_lat,
+        longitude=center_lon,
+        radius_km=radius_km,
+        location_label=location_label,
+        allow_click_select=True,
+        map_key=map_key,
+    )
+
+    # Handle map click
+    if map_data and map_data.get("last_clicked"):
+        clicked_lat = map_data["last_clicked"]["lat"]
+        clicked_lon = map_data["last_clicked"]["lng"]
+
+        st.session_state.clicked_latitude = clicked_lat
+        st.session_state.clicked_longitude = clicked_lon
+        st.session_state.location_source = "click"
+
+        # Map click becomes the active location choice.
+        st.session_state.selected_location = None
+        st.session_state.location_matches = []
+        st.session_state.selected_location_index = 0
+        st.session_state.location_search_error = None
+
+        st.info(
+            f"📍 Location set: {clicked_lat:.5f}, {clicked_lon:.5f} — "
+            "Click Analyze in the sidebar to run the analysis."
         )
 
-        st_folium(
-            study_map,
-            height=480,
-            use_container_width=True,
-            returned_objects=[],
-            key="study_area_map",
-        )
+        st.rerun()
 
-        st.caption(
-            "Geographic context only · the outlined circle "
-            "is the current study area. Satellite analysis "
-            "uses Sentinel-2 or Landsat through Earth Engine."
-        )
+    st.caption(
+        "Geographic context only · the outlined circle "
+        "is the current study area. Satellite analysis "
+        "uses Sentinel-2 or Landsat through Earth Engine."
+    )
 
-        st.caption(
-            "Sentinel-2 · Dynamic World · Landsat"
-        )
+    st.caption(
+        "Sentinel-2 · Dynamic World · Landsat"
+    )
 
     st.stop()
 
@@ -1162,14 +1279,8 @@ if trend_data is not None:
         longitude=trend_data["longitude"],
         radius_km=trend_data["radius_km"],
         location_label=trend_data["location"],
-    )
-
-    st_folium(
-        trend_map,
-        height=420,
-        use_container_width=True,
-        returned_objects=[],
-        key="trend_study_area_map",
+        allow_click_select=False,
+        map_key="trend_study_area_map",
     )
 
     st.caption(
@@ -1228,10 +1339,6 @@ if trend_data is not None:
         hide_index=True,
     )
 
-    # ------------------------------------------------------
-    # ASK SETQUERY (POPOVER)
-    # ------------------------------------------------------
-
     st.divider()
     section("Query", "Ask SetQuery AI")
 
@@ -1242,10 +1349,6 @@ if trend_data is not None:
             "to ask grounded questions about a specific "
             "before/after change."
         )
-
-    # ------------------------------------------------------
-    # WARNINGS
-    # ------------------------------------------------------
 
     if trend_data.get("warnings"):
         st.divider()
@@ -1330,15 +1433,16 @@ st.markdown(
 
 
 # ==========================================================
-# RESULT STUDY AREA MAP
+# RESULT STUDY AREA MAP WITH EE TILES
 # ==========================================================
 
 section(
     "Study area",
-    "Geographic context",
+    "Interactive map",
     (
-        "Interactive reference map showing the selected "
-        "analysis center and circular study area."
+        "Zoom and pan to explore the study area. Toggle Earth Engine "
+        "layers to view Before/After satellite imagery or Change Map. "
+        "Use the layer control (top-right) to switch between layers."
     ),
 )
 
@@ -1347,21 +1451,23 @@ result_study_map = build_study_area_map(
     longitude=longitude,
     radius_km=radius,
     location_label=location,
+    tile_layers=data.get("tile_layers"),
+    mode=mode,
+    allow_click_select=False,
+    map_key="result_study_area_map",
 )
 
-st_folium(
-    result_study_map,
-    height=420,
-    use_container_width=True,
-    returned_objects=[],
-    key="result_study_area_map",
-)
-
-st.caption(
-    "Basemap detail is for geographic context only. "
-    "SetQuery measurements use the satellite datasets "
-    "listed in the analysis methodology."
-)
+if mode == "modern_ml":
+    st.caption(
+        "Interactive Earth Engine layers: Before/After Sentinel-2 and Change Map. "
+        "Basemap is OpenStreetMap for geographic context. Satellite analysis uses "
+        "Sentinel-2 (~10 m) and Dynamic World classification."
+    )
+else:
+    st.caption(
+        "Basemap detail is for geographic context only. "
+        "SetQuery measurements use Landsat (~30 m) spectral analysis."
+    )
 
 st.divider()
 
@@ -1379,10 +1485,6 @@ if mode == "modern_ml":
         f"{coverage_level} coverage · {coverage:.1f}% comparable · {coverage_info['description']}",
         coverage_level,
     )
-
-    # ------------------------------------------------------
-    # CHANGE MAP
-    # ------------------------------------------------------
 
     section(
         "Imagery",
@@ -1703,10 +1805,6 @@ if mode == "modern_ml":
             for warning in flood_result["warnings"]:
                 st.warning(warning)
 
-    # ------------------------------------------------------
-    # LAND COVER
-    # ------------------------------------------------------
-
     st.divider()
     section(
         "Results",
@@ -1749,10 +1847,6 @@ if mode == "modern_ml":
             ("Water", f"{result['after_water_km2']:.2f} km²"),
             ("Bare", f"{result['after_bare_km2']:.2f} km²"),
         ])
-
-    # ------------------------------------------------------
-    # TRANSITIONS
-    # ------------------------------------------------------
 
     st.divider()
     section(
@@ -1800,10 +1894,6 @@ else:
         coverage_level,
     )
 
-    # ------------------------------------------------------
-    # SOURCE SUPPORT
-    # ------------------------------------------------------
-
     section(
         "Data",
         "Source support",
@@ -1823,10 +1913,6 @@ else:
     for warning in get_historical_support_warnings(result):
         st.warning(warning)
 
-    # ------------------------------------------------------
-    # HISTORICAL IMAGERY
-    # ------------------------------------------------------
-
     st.divider()
     section("Imagery", "Landsat comparison")
 
@@ -1841,10 +1927,6 @@ else:
         before=before,
         after=after,
     )
-
-    # ------------------------------------------------------
-    # SPECTRAL RESULTS
-    # ------------------------------------------------------
 
     st.divider()
     section(

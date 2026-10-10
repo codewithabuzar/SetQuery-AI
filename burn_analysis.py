@@ -79,6 +79,30 @@ def analyze_burn_evidence(context):
     before_collection = context["before_sentinel_collection"]
     after_collection = context["after_sentinel_collection"]
 
+    radius_km_value = float(
+        context["request"].get(
+            "radius_km",
+            10,
+        )
+    )
+
+    # Adaptive sampling scale: keeps pixel count roughly
+    # constant regardless of radius, so large study areas
+    # do not take proportionally much longer than small ones.
+    # Small areas keep native 10 m detail; large areas
+    # automatically use a coarser scale, capped at 40 m.
+    analysis_scale_m = max(
+        10,
+        min(
+            40,
+            (
+                3.1416
+                * (radius_km_value * 1000) ** 2
+                / 150000
+            ) ** 0.5,
+        ),
+    )
+
     before_nbr = (
         before_collection
         .map(_compute_nbr)
@@ -146,7 +170,7 @@ def analyze_burn_evidence(context):
                 "sum_stats": sum_stats_image.reduceRegion(
                     reducer=ee.Reducer.sum(),
                     geometry=area,
-                    scale=10,
+                    scale=analysis_scale_m,
                     maxPixels=1e9,
                     tileScale=4,
                 ),
@@ -154,7 +178,7 @@ def analyze_burn_evidence(context):
                 "mean_stats": mean_stats_image.reduceRegion(
                     reducer=ee.Reducer.mean(),
                     geometry=area,
-                    scale=10,
+                    scale=analysis_scale_m,
                     maxPixels=1e9,
                     tileScale=4,
                 ),

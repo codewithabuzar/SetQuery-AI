@@ -893,13 +893,6 @@ def prepare_modern_analysis(
         ],
     )
 
-    # ------------------------------------------------------
-    # BUILD COLLECTIONS
-    #
-    # These are server-side definitions only. No network
-    # round trip happens until a value is requested below.
-    # ------------------------------------------------------
-
     before_dw_collection = (
         _build_dynamic_world_collection(
             area,
@@ -935,13 +928,6 @@ def prepare_modern_analysis(
             ],
         )
     )
-
-    # ------------------------------------------------------
-    # COMBINED OBSERVATION COUNTS
-    #
-    # Previously these were four separate .getInfo() calls.
-    # They are now fetched in a single round trip.
-    # ------------------------------------------------------
 
     counts = _get_combined_counts(
         {
@@ -999,10 +985,6 @@ def prepare_modern_analysis(
             "for the AFTER composite window."
         )
 
-    # ------------------------------------------------------
-    # DYNAMIC WORLD TEMPORAL CONSENSUS
-    # ------------------------------------------------------
-
     before_consensus = (
         _build_temporal_consensus(
             before_dw_collection,
@@ -1050,10 +1032,6 @@ def prepare_modern_analysis(
         )
     )
 
-    # ------------------------------------------------------
-    # GROUPED CLASSES
-    # ------------------------------------------------------
-
     before_vegetation = (
         before_land
         .gte(1)
@@ -1093,10 +1071,6 @@ def prepare_modern_analysis(
     after_bare = (
         after_land.eq(7)
     )
-
-    # ------------------------------------------------------
-    # TRANSITIONS
-    # ------------------------------------------------------
 
     vegetation_to_built = (
         before_vegetation
@@ -1387,19 +1361,6 @@ def analyze_prepared_area(
         ]
     )
 
-    # --------------------------------------------------
-    # COMBINED STATS + TOTAL AREA REQUEST
-    #
-    # Previously the land-cover statistics reduceRegion
-    # and the total study-area calculation were two
-    # separate .getInfo() calls. They are now resolved
-    # with a single combined request.
-    #
-    # The total area is still computed using the exact
-    # geometric method (area.area()), not a pixel-sum
-    # approximation, so the reported value is unchanged.
-    # --------------------------------------------------
-
     radius_km_value = float(
         request.get(
             "radius_km",
@@ -1407,12 +1368,6 @@ def analyze_prepared_area(
         )
     )
 
-    # Adaptive sampling scale: keeps the number of
-    # pixels analyzed roughly constant regardless of
-    # the chosen radius, so a large study area does not
-    # take proportionally much longer than a small one.
-    # Small areas keep native 10 m detail; large areas
-    # automatically use a coarser scale.
     analysis_scale_m = max(
         10,
         min(
@@ -1646,7 +1601,7 @@ def analyze_prepared_area(
 
 
 # ==========================================================
-# SENTINEL PREVIEWS FROM SHARED CONTEXT
+# SENTINEL PREVIEWS FROM SHARED CONTEXT (THUMBNAILS)
 # ==========================================================
 
 def get_prepared_satellite_images(
@@ -1701,7 +1656,7 @@ def get_prepared_satellite_images(
             area,
 
         "dimensions":
-            700,
+            500,
 
         "format":
             "png",
@@ -1786,14 +1741,159 @@ def get_prepared_satellite_images(
 
 
 # ==========================================================
-# CHANGE MAP FROM SHARED CONTEXT
+# INTERACTIVE TILE LAYERS FOR FOLIUM MAP
+# ==========================================================
+
+def get_prepared_tile_layers(
+    context,
+):
+    """
+    Generate Earth Engine tile layer URLs for interactive Folium map.
+
+    Returns tile URLs and visualization parameters for:
+    - Before (Sentinel-2 true color)
+    - After (Sentinel-2 true color)
+    - Change map (transitions overlay)
+
+    These tiles can be added as folium.TileLayer objects with
+    getMapId() output. Users can toggle layers and zoom/pan.
+    """
+
+    request = context[
+        "request"
+    ]
+
+    area = context[
+        "area"
+    ]
+
+    # Before Sentinel-2 true color
+    before_image = (
+        context[
+            "before_sentinel_collection"
+        ]
+        .median()
+        .clip(
+            area
+        )
+    )
+
+    before_vis = {
+        "min": 0,
+        "max": 3000,
+        "bands": ["B4", "B3", "B2"],
+        "gamma": 1.1,
+    }
+
+    # After Sentinel-2 true color
+    after_image = (
+        context[
+            "after_sentinel_collection"
+        ]
+        .median()
+        .clip(
+            area
+        )
+    )
+
+    after_vis = {
+        "min": 0,
+        "max": 3000,
+        "bands": ["B4", "B3", "B2"],
+        "gamma": 1.1,
+    }
+
+    # Change map
+    change = (
+        ee.Image(0)
+        .where(
+            context[
+                "vegetation_to_built"
+            ],
+            1,
+        )
+        .where(
+            context[
+                "built_to_vegetation"
+            ],
+            2,
+        )
+        .where(
+            context[
+                "bare_to_built"
+            ],
+            3,
+        )
+        .where(
+            context[
+                "nonwater_to_water"
+            ],
+            4,
+        )
+        .where(
+            context[
+                "water_to_nonwater"
+            ],
+            5,
+        )
+        .clip(
+            area
+        )
+    )
+
+    change_vis = {
+        "min": 1,
+        "max": 5,
+        "palette": [
+            "FF0000",
+            "00FF00",
+            "FFFF00",
+            "0066FF",
+            "FF8800",
+        ],
+    }
+
+    try:
+        before_map_id = before_image.visualize(**before_vis).getMapId()
+        after_map_id = after_image.visualize(**after_vis).getMapId()
+
+        # Change map with semi-transparent overlay on after image
+        after_bg = after_image.visualize(
+            min=0,
+            max=3500,
+            bands=["B4", "B3", "B2"],
+            gamma=1.2,
+        ).multiply(0.45).toUint8()
+
+        change_colored = change.visualize(**change_vis)
+        change_overlay = after_bg.blend(change_colored).clip(area)
+        change_map_id = change_overlay.getMapId()
+
+    except Exception as error:
+
+        raise AnalysisDataError(
+            "Earth Engine could not generate interactive tile layers."
+        ) from error
+
+    return {
+        "before_tile_url": before_map_id["tile_fetcher"].url_format,
+        "after_tile_url": after_map_id["tile_fetcher"].url_format,
+        "change_tile_url": change_map_id["tile_fetcher"].url_format,
+        "before_vis": before_vis,
+        "after_vis": after_vis,
+        "change_vis": change_vis,
+    }
+
+
+# ==========================================================
+# CHANGE MAP FROM SHARED CONTEXT (THUMBNAIL)
 # ==========================================================
 
 def get_prepared_change_map(
     context,
 ):
     """
-    Generate the transition map from shared context.
+    Generate the transition map thumbnail from shared context.
 
     focal_max is used only for display. Numerical statistics
     continue to use the original transition pixels.
@@ -1974,7 +2074,7 @@ def get_prepared_change_map(
             area,
 
         "dimensions":
-            800,
+            500,
 
         "format":
             "png",

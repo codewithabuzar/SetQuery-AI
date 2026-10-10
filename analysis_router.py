@@ -5,6 +5,7 @@ from analysis import (
     analyze_prepared_area,
     get_prepared_satellite_images,
     get_prepared_change_map,
+    get_prepared_tile_layers,
 )
 from historical_analysis import (
     analyze_historical_area,
@@ -95,7 +96,7 @@ def run_routed_analysis(
 
     Modern mode prepares its shared Earth Engine context
     once and reuses it for statistics, Sentinel-2 imagery,
-    and Change Map generation.
+    Change Map generation, and interactive tile layers.
 
     Burn evidence and vegetation stress are NOT calculated
     in the blocking path. They are computed on-demand when
@@ -148,9 +149,8 @@ def run_routed_analysis(
 
         change_map = get_prepared_change_map(context)
 
-        # Burn evidence and vegetation stress are deferred
-        # to on-demand calculation when user clicks those tabs.
-        # This significantly reduces initial analysis time.
+        tile_layers = get_prepared_tile_layers(context)
+
         burn_evidence = None
         vegetation_stress = None
 
@@ -162,6 +162,7 @@ def run_routed_analysis(
             "result": result,
             "images": images,
             "change_map": change_map,
+            "tile_layers": tile_layers,
             "burn_evidence": burn_evidence,
             "vegetation_stress": vegetation_stress,
             "flood_evidence": flood_evidence,
@@ -195,6 +196,7 @@ def run_routed_analysis(
         "result": historical_result,
         "images": historical_images,
         "change_map": None,
+        "tile_layers": None,
         "burn_evidence": None,
         "vegetation_stress": None,
         "flood_evidence": flood_evidence,
