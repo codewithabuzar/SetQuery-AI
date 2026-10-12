@@ -15,6 +15,8 @@ SetQuery AI compares any location on Earth across two time periods using satelli
 
 The platform combines Sentinel-2 and Landsat imagery with Google's Dynamic World classifier, and layers an AI question-answering interface on top of the measured data so users can ask natural-language questions and get answers grounded in actual pixel statistics, not guesses.
 
+![Analysis Setup and Study Area](docs/images/analysispage.png)
+
 **Highlights**
 
 - Search by place name or click directly on the map to set a location
@@ -117,7 +119,21 @@ You can either search for a place by name using the sidebar, or click directly o
 
 Click **Analyze**. Processing typically takes 4–10 seconds depending on the radius. The result includes an interactive map, land-cover metrics, before/after imagery, and a change detection overlay.
 
-### 4. Review the Results
+
+### 4. Configure the Comparison
+
+| Parameter | Description | Constraints |
+|---|---|---|
+| Before Date | Start of the comparison window | Any valid date (pre-2017 triggers historical mode) |
+| After Date | End of the comparison window | Must be at least 90 days after the Before date |
+| Radius | Size of the study area | 1–20 km |
+
+The interactive map supports live Earth Engine tile layers, which can be toggled from the layer control in the top-right corner:
+
+![Interactive Earth Engine Map](docs/images/map-view.png)
+
+
+### 5. Review the Results
 
 | Tab | Content |
 |---|---|
@@ -129,7 +145,7 @@ Click **Analyze**. Processing typically takes 4–10 seconds depending on the ra
 | Vegetation Stress | NDVI-based stress indicators (loads on request) |
 | Flood Evidence | SAR-based flood indicators (loads on request) |
 
-### 5. Ask Questions
+### 6. Ask Questions
 
 Use the **Ask SetQuery AI** panel to ask questions in plain language, such as "how much vegetation was lost?" Answers are generated using the underlying measurements, with a deterministic summary as a fallback if the LLM is unavailable.
 
