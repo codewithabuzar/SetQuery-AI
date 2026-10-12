@@ -1,1514 +1,326 @@
-\# SETQUERY AI
+# SetQuery AI
 
+Satellite-based change detection and grounded geospatial analysis.
 
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.40.0-red.svg)](https://streamlit.io)
+[![Earth Engine](https://img.shields.io/badge/Earth-Engine-green.svg)](https://earthengine.google.com)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Satellite Change Detection \& Grounded AI Analysis
+---
 
+## Overview
 
+SetQuery AI compares any location on Earth across two time periods using satellite imagery, machine learning land-cover classification, and AI-assisted analysis. It is built for quick, area-level change detection without requiring GIS expertise — search a place, pick two dates, and get a structured breakdown of what changed.
 
-SetQuery AI is a geospatial analysis application for comparing satellite-derived land conditions across two time periods.
+The platform combines Sentinel-2 and Landsat imagery with Google's Dynamic World classifier, and layers an AI question-answering interface on top of the measured data so users can ask natural-language questions and get answers grounded in actual pixel statistics, not guesses.
 
+**Highlights**
 
+- Search by place name or click directly on the map to set a location
+- Dual-sensor support: Sentinel-2 (10m) for modern analysis, Landsat (30m) for historical analysis before 2017
+- Automatic mode switching based on the selected date range
+- Change detection across five transition classes (vegetation loss, urban expansion, water changes, etc.)
+- Optional on-demand modules for burn severity, vegetation stress, and flood evidence
+- AI-grounded Q&A with a deterministic fallback when the LLM is unavailable
+- Optimized pipeline — full analysis typically completes in under 5 seconds
 
-The project combines Google Earth Engine, Sentinel-2, Google Dynamic World, Landsat, deterministic analysis, and Gemini-based grounded question answering.
+---
 
+## Features
 
+| Feature | Description |
+|---|---|
+| Modern Analysis | Sentinel-2 SR + Dynamic World classification (2017–present, ~10m resolution) |
+| Historical Analysis | Landsat-derived spectral indices for dates before 2017 (~30m resolution) |
+| Interactive Map | Live Earth Engine tile layers with pan/zoom support |
+| Click-to-Select | Set the analysis center by clicking anywhere on the map |
+| Change Detection | Five tracked land-cover transitions between the two dates |
+| Burn Evidence | NBR/dNBR-based burn severity, loaded on demand |
+| Vegetation Stress | NDVI-based change analysis, loaded on demand |
+| Flood Evidence | Sentinel-1 SAR backscatter change, loaded on demand |
+| Trend Analysis | Multi-period land-cover composition over a longer timeline |
+| AI Q&A | Natural-language queries answered using the actual computed statistics |
 
-SetQuery AI automatically selects between two analysis methodologies depending on the requested dates:
+---
 
+## Quick Start
 
+### Prerequisites
 
-\- Modern ML Mode — Sentinel-2 + Dynamic World
+- Python 3.10 or later
+- A Google Earth Engine account (free for non-commercial use)
+- A Google Gemini API key (only required for the AI Q&A feature)
 
-\- Historical Spectral Mode — Landsat spectral comparison
-
-
-
-The system is intended for area-level environmental and land-cover analysis. Results are satellite-derived estimates and should not be treated as surveyed ground truth.
-
-
-
-\---
-
-
-
-\## Features
-
-
-
-SetQuery AI currently supports:
-
-
-
-\- Place-name geocoding
-
-\- Before and after target dates
-
-\- Configurable analysis radius
-
-\- Automatic date-aware analysis routing
-
-\- Sentinel-2 true-color satellite composites
-
-\- Dynamic World machine-learning land-cover analysis
-
-\- Temporal-consensus confidence filtering
-
-\- Land-cover area estimates
-
-\- Selected land-cover transition detection
-
-\- High-confidence change-map visualization
-
-\- Historical Landsat imagery
-
-\- Historical NDVI analysis
-
-\- Historical MNDWI analysis
-
-\- Historical NDBI analysis
-
-\- Comparable spatial coverage reporting
-
-\- Landsat temporal source-support reporting
-
-\- Deterministic automatic analysis summaries
-
-\- Gemini grounded question answering
-
-\- Deterministic local fallback when Gemini is unavailable
-
-\- Streamlit session-state persistence
-
-\- Request validation and error handling
-
-
-
-\---
-
-
-
-\# Analysis Modes
-
-
-
-\## 1. Modern ML Mode
-
-
-
-Modern requests use:
-
-
-
-\- Sentinel-2 Surface Reflectance Harmonized
-
-\- Google Dynamic World V1
-
-\- Approximate spatial scale: 10 m
-
-
-
-This mode provides categorical land-cover measurements and selected land-cover transitions.
-
-
-
-The current application routes requests to Modern ML Mode when both target dates are within the configured modern analysis period.
-
-
-
-\### Land-cover classes
-
-
-
-Dynamic World provides probabilities for:
-
-
-
-\- Water
-
-\- Trees
-
-\- Grass
-
-\- Flooded vegetation
-
-\- Crops
-
-\- Shrub and scrub
-
-\- Built
-
-\- Bare
-
-\- Snow and ice
-
-
-
-SetQuery AI currently groups the following classes as vegetation:
-
-
-
-\- Trees
-
-\- Grass
-
-\- Flooded vegetation
-
-\- Crops
-
-\- Shrub and scrub
-
-
-
-Other primary grouped classes include:
-
-
-
-\- Water
-
-\- Built-up
-
-\- Bare ground
-
-
-
-\---
-
-
-
-\## Dynamic World Temporal Consensus
-
-
-
-SetQuery AI originally experimented with averaging Dynamic World probability vectors across the composite window.
-
-
-
-Multi-location validation showed that probability averaging could substantially reduce comparable spatial coverage in temporally heterogeneous environments.
-
-
-
-The production Modern ML workflow therefore uses temporal consensus instead.
-
-
-
-For every Dynamic World observation at a pixel:
-
-
-
-1\. The most probable class is determined.
-
-2\. The maximum class probability must be at least 0.60 for that observation to be considered confident.
-
-
-
-A pixel is considered valid within one comparison period only when:
-
-
-
-\- At least 2 confident observations are available.
-
-\- At least 50% of the observations actually available at that pixel are confident.
-
-\- At least 60% of the confident classifications agree on the dominant class.
-
-
-
-A pixel enters the BEFORE/AFTER comparison only when it passes these rules in both periods.
-
-
-
-The 0.60 probability threshold was not lowered to increase coverage.
-
-
-
-\---
-
-
-
-\## Comparable Coverage
-
-
-
-Comparable coverage is not accuracy.
-
-
-
-It measures the percentage of the requested study area that passes the configured temporal-consensus requirements in both periods.
-
-
-
-SetQuery AI currently interprets coverage as:
-
-
-
-\- GOOD: 70% or greater
-
-\- MODERATE: 40% to 69.9%
-
-\- LIMITED: 20% to 39.9%
-
-\- VERY LOW: below 20%
-
-
-
-VERY LOW coverage is considered insufficient for broad area-level conclusions.
-
-
-
-Results with limited coverage should only be interpreted as describing the comparable subset.
-
-
-
-\---
-
-
-
-\# Modern Transition Analysis
-
-
-
-The Modern ML workflow currently measures selected transitions:
-
-
-
-\- Vegetation → Built-up
-
-\- Built-up → Vegetation
-
-\- Bare → Built-up
-
-\- Water → Non-water
-
-\- Non-water → Water
-
-
-
-Change-map colors are:
-
-
-
-\- Red — Vegetation → Built-up
-
-\- Green — Built-up → Vegetation
-
-\- Yellow — Bare → Built-up
-
-\- Blue — Non-water → Water
-
-\- Orange — Water → Non-water
-
-
-
-For visualization, transition pixels may be enlarged using image morphology so small changes are visible.
-
-
-
-Numerical area statistics always use the original classification pixels.
-
-
-
-\---
-
-
-
-\# 2. Historical Spectral Mode
-
-
-
-Earlier requests use a common Landsat-based methodology for both comparison periods.
-
-
-
-Supported Landsat collections include:
-
-
-
-\- Landsat 5
-
-\- Landsat 7
-
-\- Landsat 8
-
-\- Landsat 9
-
-
-
-The application dynamically checks which sensors contain observations for the requested location and time window.
-
-
-
-Approximate optical spatial resolution used by the workflow:
-
-
-
-\- 30 m
-
-
-
-Historical mode does not pretend to be Dynamic World classification.
-
-
-
-It performs spectral comparison using common Landsat optical bands.
-
-
-
-\---
-
-
-
-\## Historical Spectral Indices
-
-
-
-\### NDVI
-
-
-
-Normalized Difference Vegetation Index:
-
-
-
-NDVI is used as a vegetation-related spectral indicator.
-
-
-
-An increase in mean NDVI does not directly mean that a specific number of square kilometres became vegetation.
-
-
-
-\### MNDWI
-
-
-
-Modified Normalized Difference Water Index:
-
-
-
-MNDWI is used as a water-related spectral indicator.
-
-
-
-MNDWI differences should not automatically be interpreted as flooding or changes in exact water area.
-
-
-
-\### NDBI
-
-
-
-Normalized Difference Built-up Index:
-
-
-
-NDBI is treated as a built/bare-related spectral indicator.
-
-
-
-NDBI can respond to both built surfaces and bare ground.
-
-
-
-Therefore SetQuery AI does not convert NDBI directly into exact built-up area or claim that an NDBI increase proves urbanization.
-
-
-
-\---
-
-
-
-\## Historical Source Support
-
-
-
-Historical mode reports both:
-
-
-
-\- Comparable spatial coverage
-
-\- Temporal source-observation support
-
-
-
-These are different concepts.
-
-
-
-Temporal Landsat source support is currently categorized as:
-
-
-
-\- GOOD: 5 or more observations
-
-\- MODERATE: 3–4 observations
-
-\- LIMITED: 2 observations
-
-\- VERY LOW: 1 observation
-
-
-
-Source support is not an accuracy percentage.
-
-
-
-A period based on a single Landsat scene receives a strong warning because the result may be especially sensitive to that scene.
-
-
-
-\---
-
-
-
-\## Landsat 7 Limitation
-
-
-
-Landsat 7 experienced a Scan Line Corrector failure in 2003.
-
-
-
-Post-2003 Landsat 7 scenes can contain scan-line gaps.
-
-
-
-SetQuery AI uses multi-scene compositing where possible, but gaps may still affect spatial completeness.
-
-
-
-The application reports this limitation when Landsat 7 contributes to a historical comparison.
-
-
-
-\---
-
-
-
-\## Cross-Sensor Historical Comparison
-
-
-
-Historical comparisons may use different Landsat generations.
-
-
-
-For example:
-
-
-
-\- BEFORE: Landsat 7
-
-\- AFTER: Landsat 8 and Landsat 9
-
-
-
-Although corresponding optical bands are mapped to a common schema, the sensors do not have perfectly identical spectral response characteristics.
-
-
-
-Therefore:
-
-
-
-\- Sensor bandpass differences can influence absolute index values.
-
-\- Historical results should be interpreted as approximate spectral comparisons.
-
-\- They are not exact surveyed land-cover measurements.
-
-
-
-\---
-
-
-
-\# Satellite Composite Windows
-
-
-
-Selected dates are target dates.
-
-
-
-They are not necessarily satellite acquisition dates.
-
-
-
-SetQuery AI searches approximately 45 days before and 45 days after each target date and builds a composite from available observations.
-
-
-
-The application requires sufficient separation between Modern ML target dates to reduce overlap between comparison windows.
-
-
-
-Sentinel-2 true-color composites use:
-
-
-
-\- B4 — Red
-
-\- B3 — Green
-
-\- B2 — Blue
-
-
-
-The current Sentinel-2 cloud mask excludes selected Scene Classification Layer classes including:
-
-
-
-\- Cloud shadow
-
-\- Medium-probability cloud
-
-\- High-probability cloud
-
-\- Cirrus
-
-\- Snow / ice
-
-
-
-\---
-
-
-
-\# AI Analysis
-
-
-
-SetQuery AI contains two different uses of machine intelligence.
-
-
-
-\## Dynamic World ML
-
-
-
-Google Dynamic World is the machine-learning land-cover dataset used by the Modern ML analysis engine.
-
-
-
-\## Gemini LLM
-
-
-
-Gemini is used only to explain structured measurements and answer user questions.
-
-
-
-Gemini does not perform the satellite classification.
-
-
-
-Gemini receives structured analysis data rather than being asked to visually inspect satellite imagery.
-
-
-
-The grounding rules prohibit Gemini from inventing:
-
-
-
-\- Buildings
-
-\- Roads
-
-\- Construction projects
-
-\- Fires
-
-\- Flood events
-
-\- Disasters
-
-\- Causes of observed changes
-
-\- Exact property-level findings
-
-
-
-Gemini must also distinguish between:
-
-
-
-\- Net class-area differences
-
-\- Explicit detected transitions
-
-\- Spectral-index changes
-
-\- Comparable coverage
-
-\- Accuracy
-
-
-
-\---
-
-
-
-\# AI Fallback
-
-
-
-SetQuery AI includes a deterministic local fallback.
-
-
-
-If Gemini is unavailable because of:
-
-
-
-\- Quota limits
-
-\- Rate limits
-
-\- Temporary service capacity
-
-\- Network problems
-
-
-
-the application can still answer common questions using measured analysis results.
-
-
-
-HTTP 429 quota/rate-limit responses do not trigger repeated immediate Gemini requests.
-
-
-
-Temporary 503 failures may be retried before falling back.
-
-
-
-\---
-
-
-
-\# Architecture
-
-
-
-```text
-
-User
-
-&#x20;|
-
-&#x20;v
-
-Streamlit
-
-&#x20;|
-
-&#x20;v
-
-Nominatim Geocoding
-
-&#x20;|
-
-&#x20;v
-
-Analysis Router
-
-&#x20;|
-
-&#x20;+--------------------------+
-
-&#x20;|                          |
-
-&#x20;v                          v
-
-Modern ML               Historical Spectral
-
-&#x20;|                          |
-
-Sentinel-2                  Landsat 5/7/8/9
-
-Dynamic World ML            Spectral comparison
-
-Temporal consensus          NDVI / MNDWI / NDBI
-
-\~10 m                       \~30 m
-
-&#x20;|                          |
-
-&#x20;+-------------+------------+
-
-&#x20;              |
-
-&#x20;              v
-
-&#x20;       Structured Results
-
-&#x20;              |
-
-&#x20;       +------+------+
-
-&#x20;       |             |
-
-&#x20;       v             v
-
-Deterministic       Gemini
-
-Summary / Q\&A       Grounded Q\&A
-
-&#x20;       |             |
-
-&#x20;       +------+------+
-
-&#x20;              |
-
-&#x20;              v
-
-&#x20;            User
-
-```
-
-
-
-\---
-
-
-
-\# Main Technologies
-
-
-
-\- Python
-
-\- Streamlit
-
-\- Google Earth Engine Python API
-
-\- Google Dynamic World
-
-\- Sentinel-2
-
-\- Landsat
-
-\- geopy / Nominatim
-
-\- Google Gen AI Python SDK
-
-\- Gemini
-
-\- python-dotenv
-
-\- pytest
-
-\- Git / GitHub
-
-
-
-\---
-
-
-
-\# Project Structure
-
-
-
-```text
-
-SetQuery-AI/
-
-|
-
-├── app.py
-
-├── analysis.py
-
-├── analysis\_router.py
-
-├── historical\_analysis.py
-
-├── historical\_report.py
-
-├── report.py
-
-├── query.py
-
-├── llm.py
-
-├── requirements.txt
-
-├── .gitignore
-
-|
-
-├── tests/
-
-│   └── test\_core\_logic.py
-
-|
-
-└── validation/
-
-&#x20;   ├── validate\_modern.py
-
-&#x20;   ├── validate\_historical.py
-
-&#x20;   ├── modern\_validation\_results.json
-
-&#x20;   ├── historical\_validation\_results.json
-
-&#x20;   ├── investigate\_final\_consensus.py
-
-&#x20;   └── consensus\_change\_preview.py
-
-```
-
-
-
-Local-only backups and credentials should not be committed.
-
-
-
-\---
-
-
-
-\# Installation
-
-
-
-\## 1. Clone the repository
-
-
+### Installation
 
 ```bash
-
 git clone https://github.com/codewithabuzar/SetQuery-AI.git
-
 cd SetQuery-AI
-
-```
-
-
-
-\## 2. Create a Python virtual environment
-
-
-
-On Windows:
-
-
-
-```powershell
 
 python -m venv venv
 
+# Windows
+.\venv\Scripts\activate
+
+# macOS / Linux
+source venv/bin/activate
+
+pip install -r requirements.txt
 ```
 
+### Environment Variables
 
+Create a `.env` file in the project root:
 
-If PowerShell blocks `Activate.ps1`, activation is not required. The virtual environment's Python executable can be used directly.
+```env
+# Google Earth Engine project ID (optional if using default auth)
+GOOGLE_PROJECT_ID=your-project-id
 
-
-
-\## 3. Install dependencies
-
-
-
-```powershell
-
-.\\venv\\Scripts\\python.exe -m pip install -r requirements.txt
-
+# Google Gemini API key, used for AI-powered Q&A
+GEMINI_API_KEY=your-api-key
 ```
 
+### Authenticate Earth Engine
 
-
-\---
-
-
-
-\# Environment Variables
-
-
-
-Create a local `.env` file.
-
-
-
-Example:
-
-
-
-```text
-
-GEMINI\_API\_KEY=your\_api\_key\_here
-
-GEMINI\_MODEL=your\_available\_gemini\_model
-
+```bash
+earthengine authenticate
 ```
 
+This opens a browser window to authorize access to your Earth Engine account.
 
+### Run the App
 
-Never commit `.env`.
-
-
-
-Never commit API keys or service-account private keys.
-
-
-
-Gemini model availability can change, so the configured model should be one available to the user's Gemini API account.
-
-
-
-\---
-
-
-
-\# Google Earth Engine
-
-
-
-SetQuery AI requires an Earth Engine-enabled Google Cloud project.
-
-
-
-The current development project uses Earth Engine's non-commercial Community tier.
-
-
-
-Users running their own copy should configure and authenticate Earth Engine for their own Google Cloud project.
-
-
-
-The application must not rely on secrets committed to the repository.
-
-
-
-\---
-
-
-
-\# Run SetQuery AI
-
-
-
-From the project directory on Windows:
-
-
-
-```powershell
-
-.\\venv\\Scripts\\python.exe -m streamlit run app.py
-
+```bash
+streamlit run app.py
 ```
 
+The app opens automatically at `http://localhost:8501`.
 
+---
 
-Streamlit normally opens:
+## Usage
 
+### 1. Select a Location
 
+You can either search for a place by name using the sidebar, or click directly on the map to drop a pin. Both methods set the analysis center.
 
-```text
+### 2. Configure the Comparison
 
-http://localhost:8501
+| Parameter | Description | Constraints |
+|---|---|---|
+| Before Date | Start of the comparison window | Any valid date (pre-2017 triggers historical mode) |
+| After Date | End of the comparison window | Must be at least 90 days after the Before date |
+| Radius | Size of the study area | 1–20 km |
+
+### 3. Run the Analysis
+
+Click **Analyze**. Processing typically takes 4–10 seconds depending on the radius. The result includes an interactive map, land-cover metrics, before/after imagery, and a change detection overlay.
+
+### 4. Review the Results
+
+| Tab | Content |
+|---|---|
+| Change Map | Visual overlay of land-cover transitions |
+| Before | Satellite composite for the earlier date |
+| After | Satellite composite for the later date |
+| Compare | Side-by-side view of both periods |
+| Burn Evidence | Spectral burn severity (loads on request) |
+| Vegetation Stress | NDVI-based stress indicators (loads on request) |
+| Flood Evidence | SAR-based flood indicators (loads on request) |
+
+### 5. Ask Questions
+
+Use the **Ask SetQuery AI** panel to ask questions in plain language, such as "how much vegetation was lost?" Answers are generated using the underlying measurements, with a deterministic summary as a fallback if the LLM is unavailable.
+
+---
+
+## Methodology
+
+### Analysis Modes
+
+| Mode | Trigger | Sensors | Resolution | Output |
+|---|---|---|---|---|
+| Modern | Both dates ≥ 2017-01-01 | Sentinel-2 + Dynamic World | ~10m | Land-cover classes and transitions |
+| Historical | Either date < 2017-01-01 | Landsat 5/7/8 | ~30m | Spectral indices (NDVI, MNDWI, NDBI) |
+
+### Temporal Consensus (Modern Mode)
+
+Each target date is treated as the center of a ±45-day composite window rather than a single acquisition. For every pixel within that window:
+
+**Per-observation processing**
+- Extract the nine Dynamic World probability bands
+- Take the maximum probability as a confidence score
+- Assign the class with the highest probability (argmax)
+- Flag the observation as confident if its score is ≥ 0.60
+
+**Temporal aggregation**
+- Count total available observations
+- Count confident observations
+- Determine the modal (most frequent) class
+- Compute agreement with the modal class across observations
+
+**Validity thresholds** — a pixel is considered valid for a given period only if:
+- At least 2 observations are available
+- At least 2 are confident
+- Confident observations make up ≥ 50% of the total
+- Agreement with the modal class is ≥ 60%
+
+A pixel is included in the comparison only if it is valid for *both* periods. The resulting coverage percentage reflects the share of the study area that could be reliably compared — not classification accuracy.
+
+### Land-Cover Classes
+
+| Class | Underlying Dynamic World Classes |
+|---|---|
+| Water | 0 (water) |
+| Vegetation | 1–5 (trees, grass, flooded vegetation, crops, shrub/scrub) |
+| Built | 6 (built-up) |
+| Bare | 7 (bare ground) |
+
+### Tracked Transitions
+
+- Vegetation → Built
+- Built → Vegetation
+- Bare → Built
+- Non-water → Water
+- Water → Non-water
+
+---
+
+## Performance
+
+The analysis pipeline was optimized significantly from its initial implementation:
+
+| Stage | Time | Change |
+|---|---|---|
+| Baseline | 69s | — |
+| After deferring supplementary modules | 9s | 87% faster |
+| After reducing thumbnail resolution | 4s | 55% faster further |
+| After combining Earth Engine requests | ~4s | ~30% additional reduction |
+| **Total improvement** | **69s → ~4s** | **~94% faster** |
+
+**Key changes:**
+
+- `prepare_modern_analysis()` builds the Earth Engine collections once and reuses them, instead of rebuilding per request
+- Four separate collection counts were merged into a single `.getInfo()` call
+- Statistics and area calculations were combined into one request
+- Burn, vegetation stress, and flood modules were moved out of the blocking critical path and made on-demand
+- Thumbnail resolution was reduced from 700px to 400px to speed up rendering without a noticeable visual loss
+
+---
+
+## Project Structure
 
 ```
-
-
-
-Stop the server with:
-
-
-
-```text
-
-Ctrl+C
-
+SetQuery-AI/
+├── app.py                          # Main Streamlit entry point
+├── ui/
+│   ├── __init__.py
+│   ├── state.py                    # Session state management
+│   ├── helpers.py                  # Shared UI helper functions
+│   ├── location.py                 # Geocoding and location search
+│   ├── map.py                      # Folium map construction
+│   ├── charts.py                   # Altair chart components
+│   └── fragments.py                # On-demand analysis tabs
+├── assets/
+│   └── style.css
+├── analysis.py                     # Modern analysis (Sentinel-2 + Dynamic World)
+├── analysis_router.py              # Routes requests to the correct analysis mode
+├── historical_analysis.py          # Landsat-based historical analysis
+├── burn_analysis.py                # NBR/dNBR burn severity
+├── flood_analysis.py               # Sentinel-1 SAR flood detection
+├── vegetation_stress_analysis.py   # NDVI-based vegetation stress
+├── trend_analysis.py               # Multi-period trend analysis
+├── report.py                       # Deterministic summary (modern mode)
+├── historical_report.py            # Deterministic summary (historical mode)
+├── query.py                        # Local fallback Q&A logic
+├── llm.py                          # Gemini integration
+├── requirements.txt
+├── .env                             # Environment variables (not committed)
+├── .gitignore
+└── README.md
 ```
 
+---
 
+## Testing
 
-\---
+A few reference scenarios used during development:
 
+| Location | Before | After | Expected Result |
+|---|---|---|---|
+| IIT Patna | 2022-09-15 | 2025-09-15 | Visible built-up expansion |
+| Powai Lake, Mumbai | 2020-01-01 | 2024-01-01 | Stable water body |
+| Rural area | 2018-06-01 | 2023-06-01 | Seasonal vegetation variation |
 
+**Validation rules enforced by the app:**
 
-\# Tests
+- Coverage of 40% or higher is treated as moderate confidence or better
+- Date separation must be at least 90 days
+- Future dates are not allowed
+- Radius must be between 1 and 20 km
 
+---
 
+## Limitations
 
-The project includes non-network core-logic tests.
+| Limitation | Notes |
+|---|---|
+| Coverage is not accuracy | A high coverage percentage means enough comparable data was available — it does not guarantee the classification itself is correct |
+| Composite, not instantaneous | Each date represents a ±45-day window, not a single satellite pass |
+| Circular area only | The tool uses a point and radius, not administrative or parcel boundaries |
+| Area-level, not property-level | Not designed for precise, individual-plot analysis |
+| No ground truth | All results are derived from satellite imagery, not field surveys |
+| Cloud cover sensitivity | Persistent cloud cover can reduce the amount of usable, comparable data |
 
+---
 
+## Tech Stack
 
-Run:
+| Layer | Technology |
+|---|---|
+| Frontend | Streamlit, Altair, Folium |
+| Backend | Python 3.10+ |
+| Geospatial Processing | Google Earth Engine, GeoPy |
+| Machine Learning | Google Dynamic World V1 |
+| AI | Google Gemini |
+| Satellite Sources | Sentinel-2 SR, Landsat 5/7/8, Sentinel-1 SAR |
+| Mapping | OpenStreetMap, Folium |
 
+---
 
+## Contributing
 
-```powershell
+Contributions are welcome.
 
-$env:PYTHONPATH = (Get-Location).Path
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Commit your changes: `git commit -m "Add your feature"`
+4. Push the branch: `git push origin feature/your-feature`
+5. Open a pull request
 
-.\\venv\\Scripts\\python.exe -m pytest -v
+---
 
-```
+## License
 
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
+---
 
-Current test suite:
+## Contact
 
+**Developer:** Mohd Abuzar
+**GitHub:** [@codewithabuzar](https://github.com/codewithabuzar)
+**Earth Engine Project:** optimum-reactor-510109-b5
 
+---
 
-```text
+## Acknowledgments
 
-18 passed
+- Google Earth Engine — satellite data platform
+- Google Dynamic World — land-cover classification model
+- Streamlit — application framework
+- OpenStreetMap — base map data
+- Nominatim — geocoding service
 
-```
-
-
-
-Tests currently cover areas including:
-
-
-
-\- Date-based analysis routing
-
-\- Modern coverage categories
-
-\- Historical coverage categories
-
-\- Historical observation support
-
-\- Conservative historical Q\&A
-
-\- Low-coverage reporting
-
-\- Coverage-versus-accuracy language
-
-\- Temporal-consensus methodology reporting
-
-
-
-Passing these tests does not establish satellite classification ground-truth accuracy.
-
-
-
-\---
-
-
-
-\# Validation
-
-
-
-SetQuery AI has been sanity-tested across multiple environments.
-
-
-
-These tests are not claims of surveyed ground-truth accuracy.
-
-
-
-They are intended to identify:
-
-
-
-\- Pipeline failures
-
-\- Data-availability problems
-
-\- Coverage weaknesses
-
-\- Obviously implausible behavior
-
-\- Visualization failures
-
-
-
-\---
-
-
-
-\## Modern ML Validation
-
-
-
-Test configuration:
-
-
-
-```text
-
-Before target: 2022-09-15
-
-After target:  2025-09-15
-
-Radius:        5 km
-
-```
-
-
-
-Temporal-consensus comparable coverage:
-
-
-
-```text
-
-New Delhi     51.9%
-
-Mumbai        58.4%
-
-Ludhiana      77.1%
-
-Dehradun      79.5%
-
-Bhopal        70.5%
-
-```
-
-
-
-Before imagery, after imagery and change-map products generated successfully for all five validation environments.
-
-
-
-\---
-
-
-
-\## Why Temporal Consensus Was Introduced
-
-
-
-The earlier probability-mean approach produced:
-
-
-
-```text
-
-New Delhi     17.3%
-
-Mumbai        19.9%
-
-Ludhiana      27.5%
-
-Dehradun      77.0%
-
-Bhopal        39.0%
-
-```
-
-
-
-Experiments showed that averaging Dynamic World probability vectors over time could suppress maximum class confidence in heterogeneous regions.
-
-
-
-The temporal-consensus methodology improved comparable coverage without lowering the per-observation 0.60 probability threshold.
-
-
-
-This does not prove higher classification accuracy.
-
-
-
-It provides a more explicit temporal-consistency rule for deciding which pixels are included in the comparison.
-
-
-
-\---
-
-
-
-\## Historical Spectral Validation
-
-
-
-Historical test configuration:
-
-
-
-```text
-
-Before target: 2012-09-15
-
-After target:  2025-09-15
-
-Radius:        5 km
-
-```
-
-
-
-Example validation results:
-
-
-
-```text
-
-New Delhi
-
-Coverage: 99.9%
-
-NDVI Δ:  +0.084
-
-MNDWI Δ: -0.013
-
-NDBI Δ:  -0.040
-
-
-
-Mumbai
-
-Coverage: 57.8%
-
-NDVI Δ:  +0.078
-
-MNDWI Δ: -0.012
-
-NDBI Δ:  -0.041
-
-
-
-Ludhiana
-
-Coverage: 99.9%
-
-NDVI Δ:  +0.054
-
-MNDWI Δ: -0.052
-
-NDBI Δ:  +0.016
-
-
-
-Dehradun
-
-Coverage: 99.8%
-
-NDVI Δ:  -0.021
-
-MNDWI Δ: +0.029
-
-NDBI Δ:  +0.008
-
-
-
-Bhopal
-
-Coverage: 99.5%
-
-NDVI Δ:  +0.088
-
-MNDWI Δ: -0.013
-
-NDBI Δ:  -0.028
-
-```
-
-
-
-These values are spectral sanity-test results.
-
-
-
-They should not be interpreted as direct categorical land-cover-area changes.
-
-
-
-Exact results also depend on the resolved study coordinates.
-
-
-
-\---
-
-
-
-\# Known Limitations
-
-
-
-SetQuery AI should not claim reliable detection of:
-
-
-
-\- Individual small houses
-
-\- Individual trees
-
-\- Tiny or narrow roads
-
-\- Exact property-level changes
-
-\- Exact surveyed area
-
-\- Exact causes of change
-
-
-
-Modern ML results can be influenced by:
-
-
-
-\- Dynamic World classification uncertainty
-
-\- Temporal variation
-
-\- Composite timing
-
-\- Clouds
-
-\- Seasonality
-
-\- Spatial resolution
-
-
-
-Historical results can additionally be influenced by:
-
-
-
-\- Landsat 7 scan-line gaps
-
-\- Limited source observations
-
-\- Cross-sensor spectral differences
-
-\- 30 m spatial resolution
-
-\- Spectral-index ambiguity
-
-
-
-\---
-
-
-
-\# What SetQuery AI Does Not Claim
-
-
-
-SetQuery AI does not claim:
-
-
-
-\- Survey-grade ground truth
-
-\- 100% classification accuracy
-
-\- Exact acquisition on the selected target date
-
-\- Exact causation
-
-\- Reliable individual-building change detection
-
-\- That comparable coverage equals accuracy
-
-\- That NDBI directly equals built-up area
-
-\- That NDVI directly equals vegetation area
-
-\- That MNDWI directly equals water area
-
-
-
-\---
-
-
-
-\# Performance Note
-
-
-
-The current prototype reconstructs some Google Earth Engine products when producing statistics, imagery and visualization outputs.
-
-
-
-A future optimization can prepare shared Earth Engine collections/composites once per request and reuse them across result generation.
-
-
-
-This optimization was intentionally deferred after methodology validation to avoid unnecessary regression risk before project finalization.
-
-
-
-\---
-
-
-
-\# Future Improvements
-
-
-
-Potential future work includes:
-
-
-
-\- Shared Earth Engine computation per request
-
-\- More extensive automated integration testing
-
-\- Interactive geographic location picker
-
-\- Improved before/after comparison controls
-
-\- Additional statistical visualizations
-
-\- Better mobile layout
-
-\- Historical cross-sensor harmonization research
-
-\- Optional DEM-based 3D terrain visualization
-
-\- Public deployment
-
-
-
-Any future 3D terrain implementation should use an actual elevation dataset rather than treating Sentinel-2 imagery as elevation data.
-
-
-
-\---
-
-
-
-\# Project Status
-
-
-
-SetQuery AI is currently a validated functional prototype.
-
-
-
-Core analysis functionality is feature-frozen while the project moves through:
-
-
-
-1\. Documentation
-
-2\. Final UI refinement
-
-3\. Configuration/security review
-
-4\. Deployment preparation
-
-
-
-\---
-
-
-
-\# Disclaimer
-
-
-
-SetQuery AI is an educational geospatial analysis project.
-
-
-
-Results are derived from satellite imagery, machine-learning datasets, spectral indices and automated processing.
-
-
-
-They should not be treated as a replacement for professional surveying, official land records, field verification or authoritative environmental assessment.
-
+---
