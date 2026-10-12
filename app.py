@@ -50,11 +50,11 @@ PREVIEW_MAX_ATTEMPTS = 3
 PREVIEW_RETRY_DELAY_SECONDS = 1.0
 
 CHANGE_LEGEND = [
-    ("#ff0000", "Vegetation → Built"),
-    ("#00d45a", "Built → Vegetation"),
-    ("#e6c800", "Bare → Built"),
-    ("#3278ff", "Non-water → Water"),
-    ("#e78134", "Water → Non-water"),
+    ("#ff3b30", "Vegetation → Built"),
+    ("#30d158", "Built → Vegetation"),
+    ("#ff9f0a", "Bare → Built"),
+    ("#2997ff", "Non-water → Water"),
+    ("#ff6482", "Water → Non-water"),
 ]
 
 AI_SOURCE_CAPTIONS = {
@@ -479,10 +479,7 @@ def build_study_area_map(
         zoom_start = 10
 
     map_object = folium.Map(
-        location=[
-            latitude,
-            longitude,
-        ],
+        location=[latitude, longitude],
         zoom_start=zoom_start,
         tiles=None,
         control_scale=True,
@@ -491,18 +488,13 @@ def build_study_area_map(
     )
 
     folium.TileLayer(
-        tiles=(
-            "https://{s}.tile.openstreetmap.org/"
-            "{z}/{x}/{y}.png"
-        ),
+        tiles="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         attr="© OpenStreetMap contributors",
         name="OpenStreetMap",
         overlay=False,
         control=True,
         max_zoom=19,
-    ).add_to(
-        map_object
-    )
+    ).add_to(map_object)
 
     if mode == "modern_ml" and tile_layers:
         try:
@@ -536,66 +528,43 @@ def build_study_area_map(
         except Exception:
             pass
 
-    popup_text = (
-        location_label
-        if location_label
-        else "Selected analysis center"
-    )
+    popup_text = location_label if location_label else "Selected analysis center"
 
     folium.CircleMarker(
-        location=[
-            latitude,
-            longitude,
-        ],
+        location=[latitude, longitude],
         radius=5,
         color="#f5f5f7",
         weight=2,
         fill=True,
-        fill_color="#ef4444",
+        fill_color="#2997ff",
         fill_opacity=1,
         tooltip="Analysis center",
         popup=popup_text,
-    ).add_to(
-        map_object
-    )
+    ).add_to(map_object)
 
     folium.Circle(
-        location=[
-            latitude,
-            longitude,
-        ],
-        radius=(
-            radius_km
-            * 1000
-        ),
-        color="#ef4444",
+        location=[latitude, longitude],
+        radius=(radius_km * 1000),
+        color="#2997ff",
         weight=2,
         opacity=0.9,
         fill=True,
-        fill_color="#ef4444",
-        fill_opacity=0.07,
-        tooltip=(
-            f"{radius_km:g} km analysis radius"
-        ),
-    ).add_to(
-        map_object
-    )
+        fill_color="#2997ff",
+        fill_opacity=0.08,
+        tooltip=f"{radius_km:g} km analysis radius",
+    ).add_to(map_object)
 
     Fullscreen(
         position="topright",
         title="Fullscreen",
         title_cancel="Exit fullscreen",
         force_separate_button=True,
-    ).add_to(
-        map_object
-    )
+    ).add_to(map_object)
 
     folium.LayerControl(
         position="topright",
         collapsed=True,
-    ).add_to(
-        map_object
-    )
+    ).add_to(map_object)
 
     # Render map and capture click events if enabled
     if allow_click_select:
@@ -635,14 +604,14 @@ def grouped_bar_chart(values, category_field, category_order, value_field, value
     """Shared Before/After grouped bar chart used by both analysis modes."""
     return (
         alt.Chart(alt.Data(values=values))
-        .mark_bar(cornerRadiusTopLeft=1, cornerRadiusTopRight=1)
+        .mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3)
         .encode(
             x=alt.X(f"{category_field}:N", title=None, sort=category_order),
             xOffset=alt.XOffset("Period:N"),
             y=alt.Y(f"{value_field}:Q", title=value_title),
             color=alt.Color(
                 "Period:N",
-                scale=alt.Scale(domain=["Before", "After"], range=["#696e72", "#d9dddf"]),
+                scale=alt.Scale(domain=["Before", "After"], range=["#5c5c66", "#2997ff"]),
                 legend=alt.Legend(orient="top", title=None),
             ),
             tooltip=[
@@ -651,16 +620,16 @@ def grouped_bar_chart(values, category_field, category_order, value_field, value
                 alt.Tooltip(f"{value_field}:Q", title=value_title, format=tooltip_format),
             ],
         )
-        .properties(height=250)
+        .properties(height=260)
         .configure_view(strokeOpacity=0)
         .configure_axis(
-            labelColor="#8a9095",
-            titleColor="#8a9095",
-            gridColor="#222629",
-            domainColor="#303438",
-            tickColor="#303438",
+            labelColor="#86868b",
+            titleColor="#86868b",
+            gridColor="#1c1c1e",
+            domainColor="#2c2c2e",
+            tickColor="#2c2c2e",
         )
-        .configure_legend(labelColor="#a4a9ae")
+        .configure_legend(labelColor="#a1a1a6")
     )
 
 
@@ -715,11 +684,12 @@ def trend_composition_chart(trend_data):
         y=alt.Y("Percent:Q", title="Percent of that date's own valid area"),
         color=alt.Color(
             "Class:N",
+            scale=alt.Scale(range=["#30d158", "#2997ff", "#0a84ff", "#98989d"]),
             legend=alt.Legend(orient="top", title=None),
         ),
     )
 
-    line = base.mark_line()
+    line = base.mark_line(strokeWidth=2)
 
     points = base.mark_circle(size=90).encode(
         opacity=alt.condition(
@@ -740,13 +710,13 @@ def trend_composition_chart(trend_data):
         .properties(height=320)
         .configure_view(strokeOpacity=0)
         .configure_axis(
-            labelColor="#8a9095",
-            titleColor="#8a9095",
-            gridColor="#222629",
-            domainColor="#303438",
-            tickColor="#303438",
+            labelColor="#86868b",
+            titleColor="#86868b",
+            gridColor="#1c1c1e",
+            domainColor="#2c2c2e",
+            tickColor="#2c2c2e",
         )
-        .configure_legend(labelColor="#a4a9ae")
+        .configure_legend(labelColor="#a1a1a6")
     )
 
 
@@ -775,6 +745,360 @@ def resolve_ai_answer(mode, question, result, location, before, after):
         return fallback_fn(question, result), fallback_source, str(error)
     except Exception as error:
         return fallback_fn(question, result), fallback_source, f"AI service error: {error}"
+
+
+# ==========================================================
+# SUPPLEMENTARY ANALYSIS FRAGMENTS
+#
+# Each of these is wrapped in @st.fragment so that clicking a
+# button inside a tab (or asking a question) only re-runs that
+# fragment's own body on rerun, instead of re-executing the
+# entire script — which would otherwise rebuild the Folium /
+# Earth Engine map and recompute every chart above it.
+#
+# All three evidence fragments follow the same pattern used by
+# the flood-evidence tab in the original build: read from
+# session_state first, compute only when the button is clicked,
+# store the result, then rerun the fragment to render it.
+# ==========================================================
+
+@st.fragment
+def render_burn_evidence_tab(latitude, longitude, before, after, radius):
+    """Render burn evidence (NBR/dNBR), computed on demand."""
+
+    burn_evidence = st.session_state.burn_evidence_data
+    burn_error = st.session_state.burn_evidence_error
+
+    if burn_evidence is None:
+
+        st.info(
+            "Burn evidence is not calculated automatically because "
+            "it uses additional spectral analysis and adds noticeable "
+            "extra time. Click below to check this specific area and "
+            "date range."
+        )
+
+        if burn_error:
+            st.warning(burn_error)
+
+        check_burn_clicked = st.button(
+            "Check burn evidence (NBR/dNBR, ~5-10s)",
+            key="check_burn_evidence_button",
+        )
+
+        if check_burn_clicked:
+
+            try:
+                from burn_analysis import analyze_burn_evidence
+                with st.spinner("Calculating burn evidence..."):
+                    burn_start_time = time.perf_counter()
+                    burn_evidence = analyze_burn_evidence(
+                        latitude=latitude,
+                        longitude=longitude,
+                        before_date=before,
+                        after_date=after,
+                        radius_km=radius,
+                    )
+                    burn_elapsed = time.perf_counter() - burn_start_time
+
+                print(f"SetQuery burn evidence analysis: {burn_elapsed:.1f} seconds")
+
+                st.session_state.burn_evidence_data = burn_evidence
+                st.session_state.burn_evidence_error = None
+                st.rerun(scope="fragment")
+
+            except Exception as error:
+                st.session_state.burn_evidence_error = (
+                    f"Burn evidence could not be calculated: {error}"
+                )
+                st.rerun(scope="fragment")
+
+    if burn_evidence:
+
+        st.caption(
+            "Spectral evidence from NBR/dNBR, not a "
+            "validated fire detection or damage "
+            "assessment."
+        )
+
+        metric_grid(
+            [
+                ("Before mean NBR", f"{burn_evidence['before_mean_nbr']:.3f}"),
+                ("After mean NBR", f"{burn_evidence['after_mean_nbr']:.3f}"),
+                ("Mean dNBR", f"{burn_evidence['mean_dnbr']:+.3f}"),
+            ],
+            per_row=3,
+        )
+
+        severity_rows = [
+            {"Category": label.replace("_", " ").title(), "Area": area_km2}
+            for label, area_km2 in burn_evidence["severity_area_km2"].items()
+        ]
+
+        severity_chart = (
+            alt.Chart(alt.Data(values=severity_rows))
+            .mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3, color="#ff9f0a")
+            .encode(
+                x=alt.X("Category:N", title=None, sort=None),
+                y=alt.Y("Area:Q", title="Area (km²)"),
+                tooltip=[
+                    alt.Tooltip("Category:N"),
+                    alt.Tooltip("Area:Q", format=".4f"),
+                ],
+            )
+            .properties(height=250)
+            .configure_view(strokeOpacity=0)
+            .configure_axis(
+                labelColor="#86868b",
+                titleColor="#86868b",
+                gridColor="#1c1c1e",
+                domainColor="#2c2c2e",
+                tickColor="#2c2c2e",
+            )
+        )
+
+        st.altair_chart(severity_chart, width="stretch")
+
+        st.caption(burn_evidence["severity_thresholds_note"])
+
+        for warning in burn_evidence.get("warnings", []):
+            st.warning(warning)
+
+
+@st.fragment
+def render_vegetation_stress_tab(latitude, longitude, before, after, radius):
+    """Render vegetation stress (NDVI change), computed on demand."""
+
+    vegetation_stress = st.session_state.vegetation_stress_data
+    vegetation_error = st.session_state.vegetation_stress_error
+
+    if vegetation_stress is None:
+
+        st.info(
+            "Vegetation stress is not calculated automatically because "
+            "it uses additional spectral analysis and adds noticeable "
+            "extra time. Click below to check this specific area and "
+            "date range."
+        )
+
+        if vegetation_error:
+            st.warning(vegetation_error)
+
+        check_veg_clicked = st.button(
+            "Check vegetation stress (NDVI change, ~5-10s)",
+            key="check_vegetation_stress_button",
+        )
+
+        if check_veg_clicked:
+
+            try:
+                from vegetation_stress_analysis import analyze_vegetation_stress
+                with st.spinner("Calculating vegetation stress..."):
+                    veg_start_time = time.perf_counter()
+                    vegetation_stress = analyze_vegetation_stress(
+                        latitude=latitude,
+                        longitude=longitude,
+                        before_date=before,
+                        after_date=after,
+                        radius_km=radius,
+                    )
+                    veg_elapsed = time.perf_counter() - veg_start_time
+
+                print(f"SetQuery vegetation stress analysis: {veg_elapsed:.1f} seconds")
+
+                st.session_state.vegetation_stress_data = vegetation_stress
+                st.session_state.vegetation_stress_error = None
+                st.rerun(scope="fragment")
+
+            except Exception as error:
+                st.session_state.vegetation_stress_error = (
+                    f"Vegetation stress could not be calculated: {error}"
+                )
+                st.rerun(scope="fragment")
+
+    if vegetation_stress:
+
+        st.caption(
+            "Spectral evidence from NDVI change, not a "
+            "validated drought or crop-stress confirmation."
+        )
+
+        metric_grid(
+            [
+                ("Before mean NDVI", f"{vegetation_stress['before_mean_ndvi']:.3f}"),
+                ("After mean NDVI", f"{vegetation_stress['after_mean_ndvi']:.3f}"),
+                ("Mean NDVI change", f"{vegetation_stress['mean_ndvi_change']:+.3f}"),
+            ],
+            per_row=3,
+        )
+
+        breakdown_rows = [
+            {"Category": "Increased", "Percent": vegetation_stress["increased_percent"]},
+            {"Category": "Decreased", "Percent": vegetation_stress["decreased_percent"]},
+            {"Category": "Stable", "Percent": vegetation_stress["stable_percent"]},
+        ]
+
+        breakdown_chart = (
+            alt.Chart(alt.Data(values=breakdown_rows))
+            .mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3, color="#30d158")
+            .encode(
+                x=alt.X("Category:N", title=None, sort=None),
+                y=alt.Y("Percent:Q", title="% of valid area"),
+                tooltip=[
+                    alt.Tooltip("Category:N"),
+                    alt.Tooltip("Percent:Q", format=".2f"),
+                ],
+            )
+            .properties(height=250)
+            .configure_view(strokeOpacity=0)
+            .configure_axis(
+                labelColor="#86868b",
+                titleColor="#86868b",
+                gridColor="#1c1c1e",
+                domainColor="#2c2c2e",
+                tickColor="#2c2c2e",
+            )
+        )
+
+        st.altair_chart(breakdown_chart, width="stretch")
+
+        for warning in vegetation_stress.get("warnings", []):
+            st.warning(warning)
+
+
+@st.fragment
+def render_flood_evidence_tab(latitude, longitude, before, after, radius):
+    """Render flood evidence (Sentinel-1 SAR), computed on demand."""
+
+    st.caption(
+        "SAR-based surface-water change indicator, not a "
+        "validated flood damage assessment."
+    )
+
+    flood_result = st.session_state.flood_evidence_data
+    flood_error = st.session_state.flood_evidence_error
+
+    if flood_result is None:
+
+        st.info(
+            "Flood evidence is not calculated automatically because "
+            "it uses a separate Sentinel-1 SAR dataset and adds "
+            "noticeable extra time. Click below to check this "
+            "specific area and date range."
+        )
+
+        if flood_error:
+            st.warning(flood_error)
+
+        check_flood_clicked = st.button(
+            "Check flood evidence (Sentinel-1 SAR, ~10-20s)",
+            key="check_flood_evidence_button",
+        )
+
+        if check_flood_clicked:
+
+            try:
+                with st.spinner("Running Sentinel-1 SAR flood analysis..."):
+                    flood_start_time = time.perf_counter()
+                    flood_result = analyze_flood_evidence(
+                        latitude=latitude,
+                        longitude=longitude,
+                        before_date=before,
+                        after_date=after,
+                        radius_km=radius,
+                    )
+                    flood_elapsed = time.perf_counter() - flood_start_time
+
+                print(f"SetQuery flood evidence analysis: {flood_elapsed:.1f} seconds")
+
+                st.session_state.flood_evidence_data = flood_result
+                st.session_state.flood_evidence_error = None
+                st.rerun(scope="fragment")
+
+            except (FloodValidationError, FloodDataError) as error:
+                st.session_state.flood_evidence_error = str(error)
+                st.rerun(scope="fragment")
+
+            except Exception as error:
+                st.session_state.flood_evidence_error = (
+                    f"Flood evidence could not be calculated: {error}"
+                )
+                st.rerun(scope="fragment")
+
+    else:
+
+        if not flood_result["orbit_matched"]:
+            st.warning(
+                "No shared Sentinel-1 orbit pass was found between "
+                "the Before and After periods. This result may be "
+                "affected by viewing-geometry differences."
+            )
+
+        metric_grid(
+            [
+                ("Before mean VV", f"{flood_result['before_mean_vv_db']:.2f} dB"),
+                ("After mean VV", f"{flood_result['after_mean_vv_db']:.2f} dB"),
+                ("New water", f"{flood_result['new_water_percent_of_valid_area']:.2f}%"),
+            ],
+            per_row=3,
+        )
+
+        st.write(
+            f"New water area: `{flood_result['new_water_area_km2']:.3f} km²` "
+            f"of `{flood_result['valid_area_km2']:.2f} km²` analyzed"
+        )
+
+        for warning in flood_result["warnings"]:
+            st.warning(warning)
+
+
+@st.fragment
+def render_ai_qa_section(mode, result, location, before, after):
+    """
+    Render the Ask SetQuery AI popover + answer.
+
+    Wrapped in a fragment so submitting a question does not
+    re-run the full page (and does not call Gemini more than
+    once per submission).
+    """
+
+    with st.popover("Ask SetQuery AI", use_container_width=False):
+
+        with st.form("question_form", clear_on_submit=False):
+            question = st.text_input(
+                "Question",
+                placeholder="What changed in this area?",
+                label_visibility="collapsed",
+            )
+            ask_clicked = st.form_submit_button(
+                "Ask",
+                type="primary",
+                use_container_width=True,
+            )
+
+        if ask_clicked and question.strip():
+            answer, source, status = resolve_ai_answer(
+                mode, question, result, location, before, after
+            )
+            st.session_state.ai_answer = answer
+            st.session_state.ai_source = source
+            st.session_state.ai_status = status
+
+        if st.session_state.ai_answer:
+
+            st.divider()
+
+            st.caption(
+                AI_SOURCE_CAPTIONS.get(
+                    st.session_state.ai_source,
+                    "Local response from analysis measurements",
+                )
+            )
+            st.write(st.session_state.ai_answer)
+
+            if st.session_state.ai_status:
+                with st.expander("Service status"):
+                    st.caption(st.session_state.ai_status)
 
 
 # ==========================================================
@@ -929,18 +1253,11 @@ with st.sidebar:
 
             default_date = (
                 today
-                - timedelta(
-                    days=(
-                        (trend_point_count - 1 - point_index)
-                        * 365
-                    )
-                )
+                - timedelta(days=((trend_point_count - 1 - point_index) * 365))
             )
 
             if default_date < TREND_MIN_DATE:
-                default_date = TREND_MIN_DATE + timedelta(
-                    days=point_index * 30
-                )
+                default_date = TREND_MIN_DATE + timedelta(days=point_index * 30)
 
             picked_date = st.date_input(
                 f"Date {point_index + 1}",
@@ -1054,10 +1371,7 @@ if run_clicked:
                 )
 
             elapsed = time.perf_counter() - start_time
-            print(
-                f"SetQuery Earth Engine analysis: "
-                f"{elapsed:.1f} seconds"
-            )
+            print(f"SetQuery Earth Engine analysis: {elapsed:.1f} seconds")
 
             st.session_state.analysis_data = {
                 "location": selected_location["address"],
@@ -1091,19 +1405,13 @@ if run_clicked:
                 trend_result = analyze_trend(
                     latitude=selected_location["latitude"],
                     longitude=selected_location["longitude"],
-                    dates=[
-                        str(single_date)
-                        for single_date in trend_dates
-                    ],
+                    dates=[str(single_date) for single_date in trend_dates],
                     radius_km=radius_km,
                     confidence_threshold=CONFIDENCE_THRESHOLD,
                 )
 
             elapsed = time.perf_counter() - start_time
-            print(
-                f"SetQuery Earth Engine trend analysis: "
-                f"{elapsed:.1f} seconds"
-            )
+            print(f"SetQuery Earth Engine trend analysis: {elapsed:.1f} seconds")
 
             st.session_state.trend_data = {
                 "location": selected_location["address"],
@@ -1140,14 +1448,9 @@ trend_data = st.session_state.trend_data
 
 if data is None and trend_data is None:
 
-    st.markdown(
-        '<div class="sq-workspace-spacer"></div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown('<div class="sq-workspace-spacer"></div>', unsafe_allow_html=True)
 
-    st.title(
-        "Satellite change analysis"
-    )
+    st.title("Satellite change analysis")
 
     # Determine current location for map display
     if st.session_state.clicked_latitude and st.session_state.clicked_longitude:
@@ -1178,13 +1481,9 @@ if data is None and trend_data is None:
             "analysis period and radius."
         )
 
-        st.caption(
-            "Or click anywhere on the map below to set the analysis center."
-        )
+        st.caption("Or click anywhere on the map below to set the analysis center.")
 
-        st.caption(
-            "Sentinel-2 · Dynamic World · Landsat"
-        )
+        st.caption("Sentinel-2 · Dynamic World · Landsat")
 
     else:
 
@@ -1193,9 +1492,7 @@ if data is None and trend_data is None:
             "Set the dates and radius, then run the analysis."
         )
 
-        st.caption(
-            location_label
-        )
+        st.caption(location_label)
 
     # Map with click-to-select enabled
     map_key = "study_area_map"
@@ -1236,9 +1533,7 @@ if data is None and trend_data is None:
         "uses Sentinel-2 or Landsat through Earth Engine."
     )
 
-    st.caption(
-        "Sentinel-2 · Dynamic World · Landsat"
-    )
+    st.caption("Sentinel-2 · Dynamic World · Landsat")
 
     st.stop()
 
@@ -1249,10 +1544,7 @@ if data is None and trend_data is None:
 
 if trend_data is not None:
 
-    period_dates = [
-        period["date"]
-        for period in trend_data["periods"]
-    ]
+    period_dates = [period["date"] for period in trend_data["periods"]]
 
     st.markdown(
         '<div class="sq-result-header">'
@@ -1290,11 +1582,7 @@ if trend_data is not None:
 
     st.divider()
 
-    section(
-        "Results",
-        "Land-cover trend",
-        trend_data["methodology_note"],
-    )
+    section("Results", "Land-cover trend", trend_data["methodology_note"])
 
     st.info(
         "Each date below is analyzed independently. Faded "
@@ -1303,10 +1591,7 @@ if trend_data is not None:
         "than treated as confirmed measurements."
     )
 
-    st.altair_chart(
-        trend_composition_chart(trend_data),
-        width="stretch",
-    )
+    st.altair_chart(trend_composition_chart(trend_data), width="stretch")
 
     st.caption(
         "Percent values are relative to each date's own valid "
@@ -1333,11 +1618,7 @@ if trend_data is not None:
         for period in trend_data["periods"]
     ]
 
-    st.dataframe(
-        table_rows,
-        width="stretch",
-        hide_index=True,
-    )
+    st.dataframe(table_rows, width="stretch", hide_index=True)
 
     st.divider()
     section("Query", "Ask SetQuery AI")
@@ -1362,26 +1643,11 @@ if trend_data is not None:
 
         st.write(f"Total study area: `{trend_data['total_area_km2']:.2f} km²`")
         st.write(f"Classification method: `{trend_data['classification_method']}`")
-        st.write(
-            "Per-observation probability: "
-            f"`≥ {trend_data['confidence_threshold'] * 100:.0f}%`"
-        )
-        st.write(
-            "Minimum confident observations: "
-            f"`{trend_data['min_confident_observations']}`"
-        )
-        st.write(
-            "Minimum confidence frequency: "
-            f"`≥ {trend_data['min_confidence_frequency'] * 100:.0f}%`"
-        )
-        st.write(
-            "Dominant-class agreement: "
-            f"`≥ {trend_data['min_temporal_consensus'] * 100:.0f}%`"
-        )
-        st.write(
-            "Reliable coverage threshold: "
-            f"`≥ {trend_data['reliable_coverage_threshold']:.0f}%`"
-        )
+        st.write(f"Per-observation probability: `≥ {trend_data['confidence_threshold'] * 100:.0f}%`")
+        st.write(f"Minimum confident observations: `{trend_data['min_confident_observations']}`")
+        st.write(f"Minimum confidence frequency: `≥ {trend_data['min_confidence_frequency'] * 100:.0f}%`")
+        st.write(f"Dominant-class agreement: `≥ {trend_data['min_temporal_consensus'] * 100:.0f}%`")
+        st.write(f"Reliable coverage threshold: `≥ {trend_data['reliable_coverage_threshold']:.0f}%`")
 
         st.markdown(
             """
@@ -1515,295 +1781,13 @@ if mode == "modern_ml":
     )
 
     with burn_tab:
-
-        burn_evidence = data.get("burn_evidence")
-
-        if burn_evidence is None:
-
-            st.info(
-                "Burn evidence is not calculated automatically because "
-                "it uses additional spectral analysis and adds noticeable "
-                "extra time. Click below to check this specific area and "
-                "date range."
-            )
-
-            check_burn_clicked = st.button(
-                "Check burn evidence (NBR/dNBR, ~5-10s)",
-                key="check_burn_evidence_button",
-            )
-
-            if check_burn_clicked:
-
-                try:
-                    from burn_analysis import analyze_burn_evidence
-                    with st.spinner("Calculating burn evidence..."):
-                        burn_start_time = time.perf_counter()
-                        burn_evidence = analyze_burn_evidence(
-                            latitude=latitude,
-                            longitude=longitude,
-                            before_date=before,
-                            after_date=after,
-                            radius_km=radius,
-                        )
-                        burn_elapsed = time.perf_counter() - burn_start_time
-
-                    print(
-                        f"SetQuery burn evidence analysis: "
-                        f"{burn_elapsed:.1f} seconds"
-                    )
-
-                    st.session_state.burn_evidence_data = burn_evidence
-                    st.session_state.burn_evidence_error = None
-                    st.rerun()
-
-                except Exception as error:
-                    st.session_state.burn_evidence_error = (
-                        f"Burn evidence could not be calculated: {error}"
-                    )
-                    st.rerun()
-
-        else:
-            burn_evidence = st.session_state.get("burn_evidence_data")
-
-        if burn_evidence:
-
-            st.caption(
-                "Spectral evidence from NBR/dNBR, not a "
-                "validated fire detection or damage "
-                "assessment."
-            )
-
-            metric_grid(
-                [
-                    ("Before mean NBR", f"{burn_evidence['before_mean_nbr']:.3f}"),
-                    ("After mean NBR", f"{burn_evidence['after_mean_nbr']:.3f}"),
-                    ("Mean dNBR", f"{burn_evidence['mean_dnbr']:+.3f}"),
-                ],
-                per_row=3,
-            )
-
-            severity_rows = [
-                {
-                    "Category": label.replace("_", " ").title(),
-                    "Area": area_km2,
-                }
-                for label, area_km2 in burn_evidence["severity_area_km2"].items()
-            ]
-
-            severity_chart = (
-                alt.Chart(alt.Data(values=severity_rows))
-                .mark_bar(cornerRadiusTopLeft=1, cornerRadiusTopRight=1)
-                .encode(
-                    x=alt.X("Category:N", title=None, sort=None),
-                    y=alt.Y("Area:Q", title="Area (km²)"),
-                    tooltip=[
-                        alt.Tooltip("Category:N"),
-                        alt.Tooltip("Area:Q", format=".4f"),
-                    ],
-                )
-                .properties(height=250)
-                .configure_view(strokeOpacity=0)
-                .configure_axis(
-                    labelColor="#8a9095",
-                    titleColor="#8a9095",
-                    gridColor="#222629",
-                    domainColor="#303438",
-                    tickColor="#303438",
-                )
-            )
-
-            st.altair_chart(severity_chart, width="stretch")
-
-            st.caption(burn_evidence["severity_thresholds_note"])
-
-            for warning in burn_evidence.get("warnings", []):
-                st.warning(warning)
+        render_burn_evidence_tab(latitude, longitude, before, after, radius)
 
     with veg_tab:
-
-        vegetation_stress = data.get("vegetation_stress")
-
-        if vegetation_stress is None:
-
-            st.info(
-                "Vegetation stress is not calculated automatically because "
-                "it uses additional spectral analysis and adds noticeable "
-                "extra time. Click below to check this specific area and "
-                "date range."
-            )
-
-            check_veg_clicked = st.button(
-                "Check vegetation stress (NDVI change, ~5-10s)",
-                key="check_vegetation_stress_button",
-            )
-
-            if check_veg_clicked:
-
-                try:
-                    from vegetation_stress_analysis import analyze_vegetation_stress
-                    with st.spinner("Calculating vegetation stress..."):
-                        veg_start_time = time.perf_counter()
-                        vegetation_stress = analyze_vegetation_stress(
-                            latitude=latitude,
-                            longitude=longitude,
-                            before_date=before,
-                            after_date=after,
-                            radius_km=radius,
-                        )
-                        veg_elapsed = time.perf_counter() - veg_start_time
-
-                    print(
-                        f"SetQuery vegetation stress analysis: "
-                        f"{veg_elapsed:.1f} seconds"
-                    )
-
-                    st.session_state.vegetation_stress_data = vegetation_stress
-                    st.session_state.vegetation_stress_error = None
-                    st.rerun()
-
-                except Exception as error:
-                    st.session_state.vegetation_stress_error = (
-                        f"Vegetation stress could not be calculated: {error}"
-                    )
-                    st.rerun()
-
-        else:
-            vegetation_stress = st.session_state.get("vegetation_stress_data")
-
-        if vegetation_stress:
-
-            st.caption(
-                "Spectral evidence from NDVI change, not a "
-                "validated drought or crop-stress confirmation."
-            )
-
-            metric_grid(
-                [
-                    ("Before mean NDVI", f"{vegetation_stress['before_mean_ndvi']:.3f}"),
-                    ("After mean NDVI", f"{vegetation_stress['after_mean_ndvi']:.3f}"),
-                    ("Mean NDVI change", f"{vegetation_stress['mean_ndvi_change']:+.3f}"),
-                ],
-                per_row=3,
-            )
-
-            breakdown_rows = [
-                {"Category": "Increased", "Percent": vegetation_stress["increased_percent"]},
-                {"Category": "Decreased", "Percent": vegetation_stress["decreased_percent"]},
-                {"Category": "Stable", "Percent": vegetation_stress["stable_percent"]},
-            ]
-
-            breakdown_chart = (
-                alt.Chart(alt.Data(values=breakdown_rows))
-                .mark_bar(cornerRadiusTopLeft=1, cornerRadiusTopRight=1)
-                .encode(
-                    x=alt.X("Category:N", title=None, sort=None),
-                    y=alt.Y("Percent:Q", title="% of valid area"),
-                    tooltip=[
-                        alt.Tooltip("Category:N"),
-                        alt.Tooltip("Percent:Q", format=".2f"),
-                    ],
-                )
-                .properties(height=250)
-                .configure_view(strokeOpacity=0)
-                .configure_axis(
-                    labelColor="#8a9095",
-                    titleColor="#8a9095",
-                    gridColor="#222629",
-                    domainColor="#303438",
-                    tickColor="#303438",
-                )
-            )
-
-            st.altair_chart(breakdown_chart, width="stretch")
-
-            for warning in vegetation_stress.get("warnings", []):
-                st.warning(warning)
+        render_vegetation_stress_tab(latitude, longitude, before, after, radius)
 
     with flood_tab:
-
-        st.caption(
-            "SAR-based surface-water change indicator, not a "
-            "validated flood damage assessment."
-        )
-
-        flood_result = st.session_state.flood_evidence_data
-        flood_error = st.session_state.flood_evidence_error
-
-        if flood_result is None:
-
-            st.info(
-                "Flood evidence is not calculated automatically because "
-                "it uses a separate Sentinel-1 SAR dataset and adds "
-                "noticeable extra time. Click below to check this "
-                "specific area and date range."
-            )
-
-            if flood_error:
-                st.warning(flood_error)
-
-            check_flood_clicked = st.button(
-                "Check flood evidence (Sentinel-1 SAR, ~10-20s)",
-                key="check_flood_evidence_button",
-            )
-
-            if check_flood_clicked:
-
-                try:
-                    with st.spinner("Running Sentinel-1 SAR flood analysis..."):
-                        flood_start_time = time.perf_counter()
-                        flood_result = analyze_flood_evidence(
-                            latitude=latitude,
-                            longitude=longitude,
-                            before_date=before,
-                            after_date=after,
-                            radius_km=radius,
-                        )
-                        flood_elapsed = time.perf_counter() - flood_start_time
-
-                    print(
-                        f"SetQuery flood evidence analysis: "
-                        f"{flood_elapsed:.1f} seconds"
-                    )
-
-                    st.session_state.flood_evidence_data = flood_result
-                    st.session_state.flood_evidence_error = None
-                    st.rerun()
-
-                except (FloodValidationError, FloodDataError) as error:
-                    st.session_state.flood_evidence_error = str(error)
-                    st.rerun()
-
-                except Exception as error:
-                    st.session_state.flood_evidence_error = (
-                        f"Flood evidence could not be calculated: {error}"
-                    )
-                    st.rerun()
-
-        else:
-
-            if not flood_result["orbit_matched"]:
-                st.warning(
-                    "No shared Sentinel-1 orbit pass was found between "
-                    "the Before and After periods. This result may be "
-                    "affected by viewing-geometry differences."
-                )
-
-            metric_grid(
-                [
-                    ("Before mean VV", f"{flood_result['before_mean_vv_db']:.2f} dB"),
-                    ("After mean VV", f"{flood_result['after_mean_vv_db']:.2f} dB"),
-                    ("New water", f"{flood_result['new_water_percent_of_valid_area']:.2f}%"),
-                ],
-                per_row=3,
-            )
-
-            st.write(
-                f"New water area: `{flood_result['new_water_area_km2']:.3f} km²` "
-                f"of `{flood_result['valid_area_km2']:.2f} km²` analyzed"
-            )
-
-            for warning in flood_result["warnings"]:
-                st.warning(warning)
+        render_flood_evidence_tab(latitude, longitude, before, after, radius)
 
     st.divider()
     section(
@@ -1979,74 +1963,13 @@ st.write(summary)
 
 
 # ==========================================================
-# ASK SETQUERY (POPOVER)
+# ASK SETQUERY (POPOVER, FRAGMENT-SCOPED)
 # ==========================================================
 
 st.divider()
 section("Query", "Ask SetQuery AI", "Ask a question about the current analysis.")
 
-with st.popover("Ask SetQuery AI", use_container_width=False):
-
-    with st.form("question_form", clear_on_submit=False):
-        question = st.text_input(
-            "Question",
-            placeholder="What changed in this area?",
-            label_visibility="collapsed",
-        )
-        ask_clicked = st.form_submit_button(
-            "Ask",
-            type="primary",
-            use_container_width=True,
-        )
-
-    if ask_clicked and question.strip():
-        answer, source, status = resolve_ai_answer(
-            mode, question, result, location, before, after
-        )
-        st.session_state.ai_answer = answer
-        st.session_state.ai_source = source
-        st.session_state.ai_status = status
-
-    if st.session_state.ai_answer:
-
-        st.divider()
-
-        st.caption(
-            AI_SOURCE_CAPTIONS.get(
-                st.session_state.ai_source,
-                "Local response from analysis measurements",
-            )
-        )
-        st.write(st.session_state.ai_answer)
-
-        if st.session_state.ai_status:
-            with st.expander("Service status"):
-                st.caption(st.session_state.ai_status)
-
-
-# ==========================================================
-# PROCESS QUESTION
-# ==========================================================
-
-if ask_clicked and question.strip():
-    answer, source, status = resolve_ai_answer(mode, question, result, location, before, after)
-    st.session_state.ai_answer = answer
-    st.session_state.ai_source = source
-    st.session_state.ai_status = status
-
-
-# ==========================================================
-# RESPONSE
-# ==========================================================
-
-if st.session_state.ai_answer:
-
-    st.caption(AI_SOURCE_CAPTIONS.get(st.session_state.ai_source, "Local response from analysis measurements"))
-    st.write(st.session_state.ai_answer)
-
-    if st.session_state.ai_status:
-        with st.expander("Service status"):
-            st.caption(st.session_state.ai_status)
+render_ai_qa_section(mode, result, location, before, after)
 
 
 # ==========================================================
