@@ -7,6 +7,8 @@ Satellite-based change detection and grounded geospatial analysis.
 [![Earth Engine](https://img.shields.io/badge/Earth-Engine-green.svg)](https://earthengine.google.com)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+![SetQuery AI Homepage](docs/images/homepage.png)
+
 ---
 
 ## Overview
@@ -83,6 +85,12 @@ GOOGLE_PROJECT_ID=your-project-id
 GEMINI_API_KEY=your-api-key
 ```
 
+A template is provided in `.env.example` — copy it and fill in your own keys:
+
+```bash
+cp .env.example .env
+```
+
 ### Authenticate Earth Engine
 
 ```bash
@@ -115,25 +123,17 @@ You can either search for a place by name using the sidebar, or click directly o
 | After Date | End of the comparison window | Must be at least 90 days after the Before date |
 | Radius | Size of the study area | 1–20 km |
 
-### 3. Run the Analysis
-
-Click **Analyze**. Processing typically takes 4–10 seconds depending on the radius. The result includes an interactive map, land-cover metrics, before/after imagery, and a change detection overlay.
-
-
-### 4. Configure the Comparison
-
-| Parameter | Description | Constraints |
-|---|---|---|
-| Before Date | Start of the comparison window | Any valid date (pre-2017 triggers historical mode) |
-| After Date | End of the comparison window | Must be at least 90 days after the Before date |
-| Radius | Size of the study area | 1–20 km |
-
 The interactive map supports live Earth Engine tile layers, which can be toggled from the layer control in the top-right corner:
 
 ![Interactive Earth Engine Map](docs/images/map-view.png)
 
+### 3. Run the Analysis
 
-### 5. Review the Results
+Click **Analyze**. Processing typically takes 4–10 seconds depending on the radius. The result includes an interactive map, land-cover metrics, before/after imagery, and a change detection overlay.
+
+![Before and After Satellite Comparison](docs/images/before-after.png)
+
+### 4. Review the Results
 
 | Tab | Content |
 |---|---|
@@ -145,9 +145,19 @@ The interactive map supports live Earth Engine tile layers, which can be toggled
 | Vegetation Stress | NDVI-based stress indicators (loads on request) |
 | Flood Evidence | SAR-based flood indicators (loads on request) |
 
-### 6. Ask Questions
+Land-cover metrics are computed only from pixels that pass temporal-consensus validation in both periods:
+
+![Land Cover Metrics](docs/images/land-cover-chart.png)
+
+Each analysis also generates a deterministic, plain-language summary of the measurements:
+
+![Analysis Summary](docs/images/analysis.png)
+
+### 5. Ask Questions
 
 Use the **Ask SetQuery AI** panel to ask questions in plain language, such as "how much vegetation was lost?" Answers are generated using the underlying measurements, with a deterministic summary as a fallback if the LLM is unavailable.
+
+![AI Question Answering Example](docs/images/ai-qa.png)
 
 ---
 
@@ -240,19 +250,22 @@ SetQuery-AI/
 │   └── fragments.py                # On-demand analysis tabs
 ├── assets/
 │   └── style.css
+├── docs/
+│   └── images/                     # README screenshots
 ├── analysis.py                     # Modern analysis (Sentinel-2 + Dynamic World)
 ├── analysis_router.py              # Routes requests to the correct analysis mode
 ├── historical_analysis.py          # Landsat-based historical analysis
 ├── burn_analysis.py                # NBR/dNBR burn severity
 ├── flood_analysis.py               # Sentinel-1 SAR flood detection
 ├── vegetation_stress_analysis.py   # NDVI-based vegetation stress
-├── trend_analysis.py               # Multi-period trend analysis
+├── trend_analysis.py                # Multi-period trend analysis
 ├── report.py                       # Deterministic summary (modern mode)
 ├── historical_report.py            # Deterministic summary (historical mode)
 ├── query.py                        # Local fallback Q&A logic
 ├── llm.py                          # Gemini integration
 ├── requirements.txt
 ├── .env                             # Environment variables (not committed)
+├── .env.example                    # Environment variable template
 ├── .gitignore
 └── README.md
 ```
@@ -340,3 +353,7 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 - Nominatim — geocoding service
 
 ---
+
+<p align="center">
+  SetQuery AI — Satellite Change Detection & Grounded Analysis
+</p>
