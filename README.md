@@ -240,6 +240,13 @@ The analysis pipeline was optimized significantly from its initial implementatio
 ```
 SetQuery-AI/
 ├── app.py                          # Main Streamlit entry point
+├── app_components/                 # Application orchestration and result views
+│   ├── __init__.py               # Package initialization
+│   ├── sidebar.py                # Sidebar controls and inputs
+│   ├── workspace.py              # Empty workspace and map selection
+│   ├── analysis_runner.py        # Modern, historical, and trend execution
+│   ├── trend_results.py          # Trend charts and measurements
+│   └── comparison_results.py     # Modern and historical result rendering
 ├── ui/
 │   ├── __init__.py
 │   ├── state.py                    # Session state management
