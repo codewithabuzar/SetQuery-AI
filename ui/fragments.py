@@ -242,6 +242,11 @@ def resolve_ai_answer(mode, question, result, location, before, after):
     from query import answer_query
     from historical_report import answer_historical_query
 
+    from ai_app_help import answer_app_question
+    app_answer = answer_app_question(question)
+    if app_answer is not None:
+        return app_answer, "app-knowledge", None
+
     if mode == "historical_spectral":
         gemini_fn, fallback_fn = ask_gemini_historical, answer_historical_query
         primary_source, fallback_source = "gemini-historical", "historical-local"
@@ -250,7 +255,22 @@ def resolve_ai_answer(mode, question, result, location, before, after):
         primary_source, fallback_source = "gemini", "fallback"
 
     try:
-        answer = gemini_fn(question=question, result=result, location=location, before_date=before, after_date=after)
+        kwargs = {
+            "question": question,
+            "result": result,
+            "location": location,
+            "before_date": before,
+            "after_date": after,
+        }
+
+        if mode == "modern_ml":
+            kwargs["supplementary_data"] = {
+                "burn_evidence": st.session_state.get("burn_evidence_data"),
+                "vegetation_stress": st.session_state.get("vegetation_stress_data"),
+                "flood_evidence": st.session_state.get("flood_evidence_data"),
+            }
+
+        answer = gemini_fn(**kwargs)
         return answer, primary_source, None
     except (LLMUnavailableError, LLMConfigurationError) as error:
         return fallback_fn(question, result), fallback_source, str(error)
@@ -262,6 +282,7 @@ def resolve_ai_answer(mode, question, result, location, before, after):
 def render_ai_qa_section(mode, result, location, before, after):
     """Render the Ask SetQuery AI popover + answer."""
     AI_SOURCE_CAPTIONS = {
+        "app-knowledge": "Verified SetQuery application information",
         "gemini": "Generated from the current analysis measurements",
         "gemini-historical": "Generated from the current analysis measurements",
         "historical-local": "Local response from historical analysis measurements",

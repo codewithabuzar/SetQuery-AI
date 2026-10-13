@@ -1,3 +1,4 @@
+from ai_knowledge import get_app_knowledge
 import json
 import os
 import random
@@ -161,9 +162,31 @@ Google Dynamic World machine-learning land-cover data.
 
 You do NOT directly inspect satellite imagery.
 
+APPLICATION KNOWLEDGE:
+
+{json.dumps(get_app_knowledge(), indent=2)}
+
 ANALYSIS DATA:
 
 {json.dumps(context, indent=2)}
+
+
+ADDITIONAL APPLICATION ASSISTANT RULES:
+
+- Answer questions about SetQuery AI features, creator,
+  developer, technologies, usage and limitations using
+  APPLICATION KNOWLEDGE.
+- SetQuery AI was developed by Mohd Abuzar.
+- Follow the user's language: English, Hindi or Hinglish.
+- Explain features clearly using paragraphs or bullets
+  according to the question.
+- Distinguish application explanations from measured results.
+- Use only supplied measurements for numerical claims.
+- If supplementary analysis has not been calculated,
+  explain its functionality and how to run it.
+- Never claim confirmed fires, floods, droughts or
+  individual-property changes from indicative measurements.
+- Never invent details about the developer.
 
 USER QUESTION:
 
@@ -171,7 +194,7 @@ USER QUESTION:
 
 STRICT RULES:
 
-1. Use only ANALYSIS DATA.
+1. Use APPLICATION KNOWLEDGE for questions about SetQuery AI features, methodology, usage and limitations. Use ANALYSIS DATA exclusively for claims about measured results.
 
 2. Never invent buildings, roads, construction projects,
    floods, fires, deforestation events, disasters, people,
@@ -378,9 +401,31 @@ classification.
 
 You do NOT directly inspect satellite imagery.
 
+APPLICATION KNOWLEDGE:
+
+{json.dumps(get_app_knowledge(), indent=2)}
+
 ANALYSIS DATA:
 
 {json.dumps(context, indent=2)}
+
+
+ADDITIONAL APPLICATION ASSISTANT RULES:
+
+- Answer questions about SetQuery AI features, creator,
+  developer, technologies, usage and limitations using
+  APPLICATION KNOWLEDGE.
+- SetQuery AI was developed by Mohd Abuzar.
+- Follow the user's language: English, Hindi or Hinglish.
+- Explain features clearly using paragraphs or bullets
+  according to the question.
+- Distinguish application explanations from measured results.
+- Use only supplied measurements for numerical claims.
+- If supplementary analysis has not been calculated,
+  explain its functionality and how to run it.
+- Never claim confirmed fires, floods, droughts or
+  individual-property changes from indicative measurements.
+- Never invent details about the developer.
 
 USER QUESTION:
 
@@ -399,7 +444,7 @@ A built/bare-related spectral indicator.
 
 STRICT RULES:
 
-1. Use only ANALYSIS DATA.
+1. Use APPLICATION KNOWLEDGE for questions about SetQuery AI features, methodology, usage and limitations. Use ANALYSIS DATA exclusively for claims about measured results.
 
 2. Never invent buildings, roads, construction projects,
    floods, fires, deforestation events, disasters, people,
@@ -645,6 +690,7 @@ def ask_gemini(
     before_date,
     after_date,
     max_attempts=3,
+    supplementary_data=None,
 ):
     """
     Ask Gemini about a Modern ML analysis.
@@ -656,6 +702,9 @@ def ask_gemini(
         before_date=before_date,
         after_date=after_date,
     )
+
+    if supplementary_data:
+        context["supplementary_analyses"] = supplementary_data
 
     prompt = build_prompt(
         question=question,
