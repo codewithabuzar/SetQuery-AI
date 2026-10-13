@@ -1,0 +1,34 @@
+import ee
+
+PROJECT_ID = "optimum-reactor-510109-b5"
+
+DYNAMIC_WORLD_COLLECTION = "GOOGLE/DYNAMICWORLD/V1"
+SENTINEL_COLLECTION = "COPERNICUS/S2_SR_HARMONIZED"
+
+COMPOSITE_WINDOW_DAYS = 45
+MIN_DATE_SEPARATION_DAYS = 90
+
+MIN_RADIUS_KM = 1
+MAX_RADIUS_KM = 20
+
+DEFAULT_CONFIDENCE_THRESHOLD = 0.60
+
+MIN_CONFIDENT_OBSERVATIONS = 2
+MIN_CONFIDENCE_FREQUENCY = 0.50
+MIN_TEMPORAL_CONSENSUS = 0.60
+
+LOW_OBSERVATION_WARNING_COUNT = 3
+
+PROBABILITY_BANDS = [
+    "water",
+    "trees",
+    "grass",
+    "flooded_vegetation",
+    "crops",
+    "shrub_and_scrub",
+    "built",
+    "bare",
+    "snow_and_ice",
+]
+
+ee.Initialize(project=PROJECT_ID)
