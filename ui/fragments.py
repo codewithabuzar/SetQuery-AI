@@ -1,3 +1,4 @@
+from analysis import prepare_modern_analysis
 """
 Streamlit fragments for on-demand analysis (Burn, Vegetation, Flood, AI).
 """
@@ -30,13 +31,14 @@ def render_burn_evidence_tab(latitude, longitude, before, after, radius):
                 from burn_analysis import analyze_burn_evidence
                 with st.spinner("Calculating burn evidence..."):
                     burn_start_time = time.perf_counter()
-                    burn_evidence = analyze_burn_evidence(
+                    burn_context = prepare_modern_analysis(
                         latitude=latitude,
                         longitude=longitude,
                         before_date=before,
                         after_date=after,
                         radius_km=radius,
                     )
+                    burn_evidence = analyze_burn_evidence(burn_context)
                     burn_elapsed = time.perf_counter() - burn_start_time
 
                 print(f"SetQuery burn evidence analysis: {burn_elapsed:.1f} seconds")
@@ -108,13 +110,14 @@ def render_vegetation_stress_tab(latitude, longitude, before, after, radius):
                 from vegetation_stress_analysis import analyze_vegetation_stress
                 with st.spinner("Calculating vegetation stress..."):
                     veg_start_time = time.perf_counter()
-                    vegetation_stress = analyze_vegetation_stress(
+                    veg_context = prepare_modern_analysis(
                         latitude=latitude,
                         longitude=longitude,
                         before_date=before,
                         after_date=after,
                         radius_km=radius,
                     )
+                    vegetation_stress = analyze_vegetation_stress(veg_context)
                     veg_elapsed = time.perf_counter() - veg_start_time
 
                 print(f"SetQuery vegetation stress analysis: {veg_elapsed:.1f} seconds")
