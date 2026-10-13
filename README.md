@@ -45,6 +45,7 @@ The platform combines Sentinel-2 and Landsat imagery with Google's Dynamic World
 | Flood Evidence | Sentinel-1 SAR backscatter change, loaded on demand |
 | Trend Analysis | Multi-period land-cover composition over a longer timeline |
 | AI Q&A | Natural-language queries answered using the actual computed statistics |
+| Floating AI Assistant | Top-right workspace assistant for features, methodology, usage and creator information |
 
 ---
 
@@ -126,6 +127,8 @@ You can either search for a place by name using the sidebar, or click directly o
 The interactive map supports live Earth Engine tile layers, which can be toggled from the layer control in the top-right corner:
 
 ![Interactive Earth Engine Map](docs/images/map-view.png)
+
+The main analysis workspace includes a top-right floating **SetQuery-AI assistant**. Users can ask about application features, usage, methodology, limitations, and its developer (Mohd Abuzar) without first running satellite analysis. Questions about measured changes require available results.
 
 ### 3. Run the Analysis
 
@@ -255,6 +258,7 @@ SetQuery-AI/
 │   ├── map.py                      # Folium map construction
 │   ├── charts.py                   # Altair chart components
 │   └── fragments.py                # On-demand analysis tabs
+│   ├── floating_ai.py               # Floating workspace AI assistant
 ├── assets/
 │   └── style.css
 ├── docs/
@@ -280,6 +284,8 @@ SetQuery-AI/
 ├── report.py                       # Deterministic summary (modern mode)
 ├── historical_report.py            # Deterministic summary (historical mode)
 ├── query.py                        # Local fallback Q&A logic
+├── ai_knowledge.py                 # Verified application knowledge
+├── ai_app_help.py                  # Local application-help responses
 ├── llm.py                          # Gemini integration
 ├── requirements.txt
 ├── .env                             # Environment variables (not committed)
