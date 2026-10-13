@@ -139,6 +139,10 @@ if st.session_state.app_view == "home":
     st.stop()
 
 
+from ui.floating_ai import render_floating_ai
+
+render_floating_ai()
+
 from app_components.sidebar import render_sidebar
 
 sidebar_inputs = render_sidebar()
