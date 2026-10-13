@@ -252,18 +252,18 @@ SetQuery-AI/
 │   └── style.css
 ├── docs/
 │   └── images/                     # README screenshots
-??? analysis/                       # Modern analysis (Sentinel-2 + Dynamic World)
-?   ??? __init__.py                # Backward-compatible exports
-?   ??? config.py                  # Earth Engine configuration and constants
-?   ??? errors.py                  # Custom analysis exceptions
-?   ??? validation.py              # Input and date validation
-?   ??? ee_helpers.py              # Shared Earth Engine utilities
-?   ??? collections.py             # Dynamic World and Sentinel-2 collections
-?   ??? consensus.py               # Temporal consensus classification
-?   ??? context.py                 # Shared Modern analysis context
-?   ??? statistics.py              # Land-cover statistics and transitions
-?   ??? imagery.py                 # Satellite previews and change maps
-?   ??? compat.py                  # Backward-compatible analysis functions
+├── analysis/                        # Modern analysis (Sentinel-2 + Dynamic World)
+│   ├── __init__.py                # Backward-compatible exports
+│   ├── config.py                  # Earth Engine configuration and constants
+│   ├── errors.py                   # Custom analysis exceptions
+│   ├── validation.py              # Input and date validation
+│   ├── ee_helpers.py              # Shared Earth Engine utilities
+│   ├── collections.py             # Dynamic World and Sentinel-2 collections
+│   ├── consensus.py               # Temporal consensus classification
+│   ├── context.py                 # Shared Modern analysis context
+│   ├── statistics.py              # Land-cover statistics and transitions
+│   ├── imagery.py                 # Satellite previews and change maps
+│   └── compat.py                  # Backward-compatible analysis functions
 ├── analysis_router.py              # Routes requests to the correct analysis mode
 ├── historical_analysis.py          # Landsat-based historical analysis
 ├── burn_analysis.py                # NBR/dNBR burn severity
