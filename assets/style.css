@@ -67,7 +67,9 @@ header[data-testid="stHeader"] {
     to { opacity: 1; transform: translateY(0); }
 }
 
-.block-container { animation: sq-enter 420ms var(--ease) both; }
+/* Global page entrance animation disabled.
+   Streamlit reruns should not animate the entire workspace. */
+.block-container { animation: none; }
 
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {

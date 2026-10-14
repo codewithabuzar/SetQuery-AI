@@ -12,46 +12,8 @@ import time
 import streamlit as st
 
 # Import from organized UI module
-from ui import (
-    section,
-    sensor_text,
-    render_status,
-    render_legend,
-    metric_grid,
-    render_before_after_compare,
-    open_workspace,
-    open_home,
-    clear_analysis,
-    build_location_from_click,
-    search_locations,
-    perform_location_search,
-    build_study_area_map,
-    grouped_bar_chart,
-    modern_land_cover_chart,
-    historical_index_chart,
-    trend_composition_chart,
-    render_burn_evidence_tab,
-    render_vegetation_stress_tab,
-    render_flood_evidence_tab,
-    render_ai_qa_section,
-    SESSION_DEFAULTS,
-    initialize_session_state,
-)
-
-# Import analysis modules
-from analysis import AnalysisValidationError, AnalysisDataError
-from historical_analysis import HistoricalValidationError, HistoricalDataError
-from analysis_router import run_routed_analysis, choose_analysis_mode
-from trend_analysis import analyze_trend
-from flood_analysis import analyze_flood_evidence, FloodValidationError, FloodDataError
-from report import generate_analysis_summary, get_coverage_interpretation
-from historical_report import (
-    generate_historical_summary,
-    get_historical_coverage_level,
-    get_historical_source_support,
-    get_historical_support_warnings,
-)
-
+from ui.state import SESSION_DEFAULTS
+from ui.helpers import open_workspace
 
 # ==========================================================
 # CONFIGURATION
@@ -138,6 +100,9 @@ if st.session_state.app_view == "home":
     st.button("Open analysis", key="open_analysis", type="primary", on_click=open_workspace)
     st.stop()
 
+
+if st.session_state.get("navigation_loading"):
+    st.session_state.navigation_loading = False
 
 from ui.floating_ai import render_floating_ai
 

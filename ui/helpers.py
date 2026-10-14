@@ -79,6 +79,7 @@ def render_before_after_compare(tabs, before_url, after_url, before_caption, aft
 def open_workspace():
     """Open the analysis workspace."""
     st.session_state.app_view = "workspace"
+    st.session_state.navigation_loading = True
 
 
 def open_home():
