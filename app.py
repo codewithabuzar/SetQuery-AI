@@ -108,6 +108,30 @@ from ui.floating_ai import render_floating_ai
 
 render_floating_ai()
 
+# Professional PDF Report Workspace
+# Loaded only after entering the analysis workspace.
+
+workspace_view = st.segmented_control(
+    "Workspace",
+    ["Satellite Analysis", "Reports"],
+    default="Satellite Analysis",
+    key="sq_workspace_navigation",
+    label_visibility="collapsed",
+)
+
+if workspace_view == "Reports":
+    from report_workspace_staging import render_report_workspace
+
+    render_report_workspace()
+    st.stop()
+
+
+# Professional PDF Report Workspace
+# Loaded only after entering the analysis workspace.
+
+
+
+
 from app_components.sidebar import render_sidebar
 
 sidebar_inputs = render_sidebar()
